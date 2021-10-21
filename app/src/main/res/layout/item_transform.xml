@@ -69,6 +69,7 @@
         android:layout_height="31dp"
         android:textColor="#ffffff"
         android:gravity="center_vertical"
+        android:padding="3dp"
         app:layout_constraintStart_toStartOf="@id/image_view_item_transform"
         app:layout_constraintBottom_toTopOf="@id/text_view_item_transform"
         tools:text="게임패스 신규" />
