@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="DesignSurface">
+    <option name="filePathToZoomLevelMap">
+      <map>
+        <entry key="..\:/Documents/AndroidStudioProjects/xKorean/app/src/main/res/layout-w1240dp/activity_main.xml" value="0.11981258366800536" />
+        <entry key="..\:/Documents/AndroidStudioProjects/xKorean/app/src/main/res/layout-w1240dp/content_main.xml" value="0.11981258366800536" />
+        <entry key="..\:/Documents/AndroidStudioProjects/xKorean/app/src/main/res/layout-w600dp/fragment_transform.xml" value="0.15784832451499117" />
+        <entry key="..\:/Documents/AndroidStudioProjects/xKorean/app/src/main/res/layout-w600dp/item_transform.xml" value="0.15784832451499117" />
+        <entry key="..\:/Documents/AndroidStudioProjects/xKorean/app/src/main/res/layout/activity_main.xml" value="0.26992753623188404" />
+        <entry key="..\:/Documents/AndroidStudioProjects/xKorean/app/src/main/res/layout/app_bar_main.xml" value="0.26992753623188404" />
+        <entry key="..\:/Documents/AndroidStudioProjects/xKorean/app/src/main/res/layout/content_main.xml" value="0.26992753623188404" />
+        <entry key="..\:/Documents/AndroidStudioProjects/xKorean/app/src/main/res/layout/fragment_transform.xml" value="0.18645833333333334" />
+        <entry key="..\:/Documents/AndroidStudioProjects/xKorean/app/src/main/res/layout/item_transform.xml" value="0.18645833333333334" />
+        <entry key="..\:/Documents/AndroidStudioProjects/xKorean/app/src/main/res/layout/nav_header_main.xml" value="0.18645833333333334" />
+      </map>
+    </option>
+  </component>
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_11" default="true" project-jdk-name="JDK" project-jdk-type="JavaSDK">
+    <output url="file://$PROJECT_DIR$/build/classes" />
+  </component>
+  <component name="ProjectType">
+    <option name="id" value="Android" />
+  </component>
+</project>
