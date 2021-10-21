@@ -1,6 +1,7 @@
 package com.sindohtechno.xkorean.ui.transform
 
 import android.content.Context
+import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -131,12 +132,72 @@ class TransformFragment : Fragment() {
 
         override fun onBindViewHolder(holder: TransformViewHolder, position: Int) {
             val game = getItem(position)
-            //holder.textView.text = game.name
+            holder.textView.text = game.koreanName
 
-//            holder.imageView.setImageDrawable(
-//                ResourcesCompat.getDrawable(holder.imageView.resources, drawables[position], null)
-//            )
+            val localize = game.localize.replace("/", "\n")
+            holder.localizeTextView.text = localize
 
+            if (localize.indexOf("음성") >= 0)
+                holder.localizeTextView.setBackgroundColor(Color.argb(0xCC, 0x44, 0x85, 0x0E))
+            else if (localize.indexOf("자막") >= 0)
+                holder.localizeTextView.setBackgroundColor(Color.argb(0xCC, 0xA6, 0x88, 0x19))
+            else
+                holder.localizeTextView.setBackgroundColor(Color.argb(0xCC, 0x95, 0x0D, 0x00))
+
+            var gamePassTag = ""
+            if (game.gamePassPC != "" || game.gamePassConsole != "" || game.gamePassCloud != "")
+                gamePassTag = "게임패스"
+            else if (game.bundle.isNotEmpty()) {
+                for (bundle in game.bundle) {
+                    if (bundle.gamePassPC != "" || bundle.gamePassConsole != "" || bundle.gamePassCloud != "") {
+                        gamePassTag = "게임패스"
+                        break
+                    }
+                }
+            }
+
+            if (game.gamePassNew == "O")
+                gamePassTag += " 신규"
+            else if (game.gamePassEnd == "O")
+                gamePassTag += " 만기"
+            else {
+                for (bundle in game.bundle)
+                {
+                    if (bundle.gamePassNew != "")
+                    {
+                        gamePassTag += " 신규"
+                        break
+                    }
+                    else if (game.gamePassEnd != "")
+                    {
+                        gamePassTag += " 만기"
+                        break
+                    }
+                }
+            }
+
+            holder.gamePassTextView.text = gamePassTag
+            if (gamePassTag == "")
+                holder.gamePassBackTextView.visibility = View.INVISIBLE
+            else
+                holder.gamePassBackTextView.visibility = View.VISIBLE
+
+            if (game.gamePassPC != "")
+                holder.gamePassPCTextView.text = "피"
+            else
+                holder.gamePassPCTextView.text = ""
+
+            if (game.gamePassConsole != "")
+                holder.gamePassConsoleTextView.text = "엑"
+            else
+                holder.gamePassConsoleTextView.text = ""
+
+            if (game.gamePassCloud != "")
+                holder.gamePassCloudTextView.text = "클"
+            else
+                holder.gamePassCloudTextView.text = ""
+
+            holder.imageView.setImageBitmap(null)
 
             val request = ImageRequest(game.thumbnail,{
                 holder.imageView.setImageBitmap(it)
@@ -157,6 +218,12 @@ class TransformFragment : Fragment() {
 
         val imageView: ImageView = binding.imageViewItemTransform
         val textView: TextView = binding.textViewItemTransform
+        val localizeTextView: TextView = binding.textViewLocalize
+        val gamePassBackTextView: TextView = binding.textViewGamePassBack
+        val gamePassTextView: TextView = binding.textViewGamePass
+        val gamePassPCTextView: TextView = binding.textViewGamePassPc
+        val gamePassConsoleTextView: TextView = binding.textViewGamePassConsole
+        val gamePassCloudTextView: TextView = binding.textViewGamePassCloud
     }
 
     private class BinaryArrayRequest(url: String, listener: Response.Listener<ByteArray>, errorListener: Response.ErrorListener) : Request<ByteArray>(Method.POST, url, errorListener) {
