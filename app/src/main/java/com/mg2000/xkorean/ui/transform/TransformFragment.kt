@@ -1,7 +1,9 @@
 package com.mg2000.xkorean.ui.transform
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.*
+import android.net.Uri
 import android.os.Bundle
 import android.widget.ImageView
 import android.widget.TextView
@@ -24,6 +26,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import android.util.DisplayMetrics
 import android.view.*
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.core.view.MenuCompat
 import androidx.preference.PreferenceManager
 import com.android.volley.toolbox.*
@@ -31,6 +34,7 @@ import com.mg2000.xkorean.MainActivity
 import com.techiness.progressdialoglibrary.ProgressDialog
 import org.joda.time.format.ISODateTimeFormat
 import java.io.*
+import java.text.DecimalFormat
 
 /**
  * Fragment that demonstrates a responsive layout pattern where the format of the content
@@ -55,6 +59,9 @@ class TransformFragment : Fragment() {
     private lateinit var mPlayAnywhereSeriesTitleHeader: Bitmap
     private lateinit var mWindowsTitleHeader: Bitmap
 
+    private val mFilterDeviceArr = booleanArrayOf(false, false, false, false, false, false, false)
+    private var mGameList = mutableListOf<Game>()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setHasOptionsMenu(true)
@@ -68,13 +75,12 @@ class TransformFragment : Fragment() {
         fun loadJSONArray(jsonList: JSONArray) {
             val gson = Gson()
 
-            val gameList = mutableListOf<Game>()
+            mGameList.clear()
             for (i in 0 until jsonList.length()) {
-                gameList.add(gson.fromJson<Game>(jsonList.getString(i), Game::class.java))
+                mGameList.add(gson.fromJson(jsonList.getString(i), Game::class.java))
             }
 
-            transformViewModel.update(gameList)
-            (requireActivity() as MainActivity).setTitle("한국어 지원 타이틀")
+            updateList()
         }
 
         fun loadCacheList() {
@@ -86,6 +92,13 @@ class TransformFragment : Fragment() {
         transformViewModel = ViewModelProvider(this).get(TransformViewModel::class.java)
         _binding = FragmentTransformBinding.inflate(inflater, container, false)
         val root: View = binding.root
+
+        val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
+        val preFilterDevice = JSONArray(preferenceManager.getString("filterDevice", "[ false, false, false, false, false, false, false ]"))
+
+        for (i in 0 until preFilterDevice.length()) {
+            mFilterDeviceArr[i] = preFilterDevice.getBoolean(i)
+        }
 
         var inputStream = requireContext().assets.open("xbox_one_title.png")
         var size = inputStream.available()
@@ -242,14 +255,61 @@ class TransformFragment : Fragment() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
-
+            R.id.filter_device -> {
+                val devices = arrayOf("Xbox Series X|S", "Xbox One X Enhanced", "Xbox One", "Xbox 360", "Original Xbox", "Windows", "Xbox Cloud Gaming")
+                AlertDialog.Builder(requireContext())
+                    .setTitle("기종 선택")
+                    .setMultiChoiceItems(devices, mFilterDeviceArr) { dialog, which, isChecked ->
+                        mFilterDeviceArr[which] = isChecked
+                    }
+                    .setNegativeButton("취소", null)
+                    .setPositiveButton("확인") { dialog, which ->
+                        val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
+                        val newFilterDevice = JSONArray()
+                        mFilterDeviceArr.forEach {
+                            newFilterDevice.put(it)
+                        }
+                        preferenceManager.edit().putString("filterDevice", newFilterDevice.toString()).apply()
+                        updateList()
+                    }
+                    .show()
+            }
         }
 
         return super.onOptionsItemSelected(item)
     }
 
-    private fun updateList(gameList: List<Game>) {
+    private fun updateList() {
+        val filteredList = mutableListOf<Game>()
 
+        var useDeviceFilter = false
+        for (element in mFilterDeviceArr)
+        {
+            if (element)
+            {
+                useDeviceFilter = true
+                break
+            }
+        }
+
+        mGameList.forEach { game ->
+            if (useDeviceFilter) {
+                if (mFilterDeviceArr[0] && game.seriesXS == "" ||
+                    mFilterDeviceArr[1] && game.oneXEnhanced == "" ||
+                    mFilterDeviceArr[2] && game.oneS == "" ||
+                    mFilterDeviceArr[3] && game.x360 == "" ||
+                    mFilterDeviceArr[4] && game.og == "" ||
+                    mFilterDeviceArr[5] && game.pc == "" ||
+                    mFilterDeviceArr[6] && game.gamePassCloud == "")
+                    return@forEach
+            }
+
+            filteredList.add(game)
+        }
+
+
+        transformViewModel.update(filteredList)
+        (requireActivity() as MainActivity).setTitle("한국어 지원 타이틀: ${DecimalFormat("#,###").format(filteredList.size)}개")
     }
 
     inner class TransformAdapter :
@@ -426,6 +486,12 @@ class TransformFragment : Fragment() {
 
                 mRequestQueue.add(request)
             }
+
+            val onClickListener = View.OnClickListener {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(game.storeLink)))
+            }
+
+            holder.imageView.setOnClickListener(onClickListener)
         }
 
 //        fun updateData(updateList: List<Game>) {
