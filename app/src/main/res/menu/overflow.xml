@@ -1,7 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
-    <item
-        android:id="@+id/nav_settings"
-        android:icon="@drawable/ic_settings_black_24dp"
-        android:title="@string/menu_settings" />
+    <group>
+        <item
+            android:id="@+id/filter_device"
+            android:title="@string/menu_device" />
+        <item
+            android:id="@+id/filter_capability"
+            android:title="@string/menu_capability" />
+        <item
+            android:id="@+id/filter_category"
+            android:title="@string/menu_category" />
+        <item
+            android:id="@+id/filter_korean"
+            android:title="@string/menu_korean" />
+    </group>
+    <group>
+        <item
+            android:id="@+id/sort"
+            android:title="@string/menu_sort" />
+        <item
+            android:id="@+id/refresh"
+            android:title="@string/menu_refresh" />
+        <item
+            android:id="@+id/setting"
+            android:title="@string/menu_setting" />
+        <item
+            android:id="@+id/about"
+            android:title="@string/menu_about" />
+    </group>
 </menu>

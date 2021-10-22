@@ -1,4 +1,4 @@
-package com.sindohtechno.xkorean.ui.settings
+package com.mg2000.xkorean.ui.reflow
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -8,13 +8,13 @@ import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
-import com.sindohtechno.xkorean.R
-import com.sindohtechno.xkorean.databinding.FragmentSettingsBinding
+import com.mg2000.xkorean.R
+import com.mg2000.xkorean.databinding.FragmentReflowBinding
 
-class SettingsFragment : Fragment() {
+class ReflowFragment : Fragment() {
 
-    private lateinit var settingsViewModel: SettingsViewModel
-    private var _binding: FragmentSettingsBinding? = null
+    private lateinit var reflowViewModel: ReflowViewModel
+    private var _binding: FragmentReflowBinding? = null
 
     // This property is only valid between onCreateView and
     // onDestroyView.
@@ -25,14 +25,14 @@ class SettingsFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        settingsViewModel =
-            ViewModelProvider(this).get(SettingsViewModel::class.java)
+        reflowViewModel =
+            ViewModelProvider(this).get(ReflowViewModel::class.java)
 
-        _binding = FragmentSettingsBinding.inflate(inflater, container, false)
+        _binding = FragmentReflowBinding.inflate(inflater, container, false)
         val root: View = binding.root
 
-        val textView: TextView = binding.textSettings
-        settingsViewModel.text.observe(viewLifecycleOwner, Observer {
+        val textView: TextView = binding.textReflow
+        reflowViewModel.text.observe(viewLifecycleOwner, Observer {
             textView.text = it
         })
         return root

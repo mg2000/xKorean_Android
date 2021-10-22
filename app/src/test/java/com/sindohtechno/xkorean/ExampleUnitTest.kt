@@ -1,4 +1,4 @@
-package com.sindohtechno.xkorean
+package com.mg2000.xkorean
 
 import org.junit.Test
 

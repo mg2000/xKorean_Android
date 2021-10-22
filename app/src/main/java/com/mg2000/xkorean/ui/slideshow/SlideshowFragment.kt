@@ -1,4 +1,4 @@
-package com.sindohtechno.xkorean.ui.slideshow
+package com.mg2000.xkorean.ui.slideshow
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -8,8 +8,8 @@ import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
-import com.sindohtechno.xkorean.R
-import com.sindohtechno.xkorean.databinding.FragmentSlideshowBinding
+import com.mg2000.xkorean.R
+import com.mg2000.xkorean.databinding.FragmentSlideshowBinding
 
 class SlideshowFragment : Fragment() {
 

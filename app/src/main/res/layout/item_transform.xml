@@ -105,4 +105,16 @@
         app:layout_constraintEnd_toEndOf="@id/image_view_item_transform"
         tools:text="피" />
 
+    <TextView
+        android:id="@+id/text_view_message"
+        android:layout_width="180dp"
+        android:layout_height="31dp"
+        android:background="#CC000000"
+        android:visibility="invisible"
+        android:textColor="#ffffff"
+        android:gravity="center"
+        app:layout_constraintStart_toStartOf="@id/image_view_item_transform"
+        app:layout_constraintBottom_toTopOf="@id/text_view_game_pass_back"
+        app:layout_constraintEnd_toEndOf="@id/image_view_item_transform"/>
+
 </androidx.constraintlayout.widget.ConstraintLayout>

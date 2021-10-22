@@ -1,4 +1,4 @@
-package com.sindohtechno.xkorean.ui.transform
+package com.mg2000.xkorean.ui.transform
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
