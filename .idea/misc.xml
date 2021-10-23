@@ -15,10 +15,16 @@
         <entry key="..\:/Documents/AndroidStudioProjects/xKorean/app/src/main/res/layout/nav_header_main.xml" value="0.18645833333333334" />
         <entry key="..\:/Documents/AndroidStudioProjects/xKorean/app/src/main/res/menu/navigation_drawer.xml" value="0.3390625" />
         <entry key="..\:/Documents/AndroidStudioProjects/xKorean/app/src/main/res/menu/overflow.xml" value="0.3390625" />
+        <entry key="..\:/My Documents/AndroidStudioProjects/xKorean/app/src/main/res/layout/content_main.xml" value="0.3203125" />
+        <entry key="..\:/My Documents/AndroidStudioProjects/xKorean/app/src/main/res/layout/edition_dialog.xml" value="0.3203125" />
+        <entry key="..\:/My Documents/AndroidStudioProjects/xKorean/app/src/main/res/layout/fragment_transform.xml" value="0.3203125" />
+        <entry key="..\:/My Documents/AndroidStudioProjects/xKorean/app/src/main/res/layout/item_edition.xml" value="0.30572916666666666" />
+        <entry key="..\:/My Documents/AndroidStudioProjects/xKorean/app/src/main/res/layout/item_transform.xml" value="0.3203125" />
+        <entry key="..\:/My Documents/AndroidStudioProjects/xKorean/app/src/main/res/layout/setting_dialog.xml" value="0.3203125" />
       </map>
     </option>
   </component>
-  <component name="ProjectRootManager" version="2" languageLevel="JDK_11" project-jdk-name="11" project-jdk-type="JavaSDK">
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_11" default="true" project-jdk-name="11" project-jdk-type="JavaSDK">
     <output url="file://$PROJECT_DIR$/build/classes" />
   </component>
   <component name="ProjectType">

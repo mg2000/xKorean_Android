@@ -1,12 +1,13 @@
 package com.mg2000.xkorean.ui.transform
 
+import android.app.ActionBar
 import android.content.Context
 import android.content.Intent
 import android.graphics.*
 import android.net.Uri
 import android.os.Bundle
-import android.widget.ImageView
-import android.widget.TextView
+import android.os.Handler
+import android.os.Looper
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.DiffUtil
@@ -25,12 +26,15 @@ import java.util.zip.GZIPInputStream
 import androidx.recyclerview.widget.GridLayoutManager
 import android.util.DisplayMetrics
 import android.view.*
-import android.widget.Toast
+import android.widget.*
 import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.widget.SwitchCompat
 import androidx.core.view.MenuCompat
+import androidx.databinding.DataBindingUtil
 import androidx.preference.PreferenceManager
 import com.android.volley.toolbox.*
 import com.mg2000.xkorean.MainActivity
+import com.mg2000.xkorean.databinding.SettingDialogBinding
 import com.techiness.progressdialoglibrary.ProgressDialog
 import org.joda.time.format.ISODateTimeFormat
 import java.io.*
@@ -59,10 +63,16 @@ class TransformFragment : Fragment() {
     private lateinit var mPlayAnywhereSeriesTitleHeader: Bitmap
     private lateinit var mWindowsTitleHeader: Bitmap
 
+    private val mHandler = Handler(Looper.getMainLooper())
+
     private val mFilterDeviceArr = booleanArrayOf(false, false, false, false, false, false, false)
     private val mFilterCapabilityArr = booleanArrayOf(false, false, false, false, false, false, false, false, false, false)
     private val mFilterCategoryArr = booleanArrayOf(false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false)
+    private var mFilterKorean = 0
+    private var mSort = 0
     private var mGameList = mutableListOf<Game>()
+    private var mLanguage = "Korean"
+    private var mShowNewTitle = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -74,35 +84,6 @@ class TransformFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        fun loadJSONArray(jsonList: JSONArray) {
-            val gson = Gson()
-
-            mGameList.clear()
-            for (i in 0 until jsonList.length()) {
-                mGameList.add(gson.fromJson(jsonList.getString(i), Game::class.java))
-            }
-
-            updateList()
-        }
-
-        fun loadCacheList() : Boolean {
-            val dataFolder = requireContext().getDir("xKorean", Context.MODE_PRIVATE)
-            val dataFile = File(dataFolder, "games.json")
-            return if (dataFile.exists()) {
-                loadJSONArray(JSONArray(dataFile.readText()))
-                true
-            }
-            else
-            {
-                AlertDialog.Builder(requireContext())
-                    .setTitle("데이터 수신 오류")
-                    .setMessage("한국어 정보를 확인할 수 없습니다. 잠시 후 다시 시도해 주십시오.")
-                    .setPositiveButton("확인", null)
-                    .create().show()
-                false
-            }
-        }
-
         transformViewModel = ViewModelProvider(this).get(TransformViewModel::class.java)
         _binding = FragmentTransformBinding.inflate(inflater, container, false)
         val root: View = binding.root
@@ -113,6 +94,10 @@ class TransformFragment : Fragment() {
         for (i in 0 until preFilterDevice.length()) {
             mFilterDeviceArr[i] = preFilterDevice.getBoolean(i)
         }
+
+        mSort = preferenceManager.getInt("sort", 0)
+        mLanguage = preferenceManager.getString("language", "Korean")!!
+        mShowNewTitle = preferenceManager.getBoolean("showNewTitle", true)
 
         var inputStream = requireContext().assets.open("xbox_one_title.png")
         var size = inputStream.available()
@@ -178,6 +163,10 @@ class TransformFragment : Fragment() {
         transformViewModel.games.observe(viewLifecycleOwner, {
             adapter.submitList(it)
             adapter.notifyDataSetChanged()
+
+            mHandler.postDelayed({
+                recyclerView.scrollToPosition(0)
+            }, 200)
         })
 
         val dataFolder = requireContext().getDir("xKorean", Context.MODE_PRIVATE)
@@ -193,62 +182,7 @@ class TransformFragment : Fragment() {
 //            //setMessage("한국어 지원 타이틀 확인중...")
 //            //setCancelable(false)
 //        }
-        val progressDialog = ProgressDialog(requireContext())
-        progressDialog.show()
-
-        val updateTimeRequest = JsonObjectRequest(Request.Method.POST, "https://xbox-korean-viewer-server2.herokuapp.com/last_modified_time", null, { updateInfo ->
-            val lastModifiedTime = preferenceManager.getString("lastModifiedTime", "")
-            if (lastModifiedTime == "" || lastModifiedTime != updateInfo.getString("lastModifiedTime")) {
-                val request = BinaryArrayRequest("https://xbox-korean-viewer-server2.herokuapp.com/title_list_zip", {
-                    val gzipInputStream = GZIPInputStream(ByteArrayInputStream(it))
-                    val outputStream = ByteArrayOutputStream()
-
-                    val dataBuffer = ByteArray(32768)
-                    var len = gzipInputStream.read(dataBuffer)
-                    while (len > 0) {
-                        outputStream.write(dataBuffer, 0, len)
-                        len = gzipInputStream.read(dataBuffer)
-                    }
-                    gzipInputStream.close()
-
-                    val str = outputStream.toString("utf-8")
-                    outputStream.close()
-
-                    val newDataFile = File(dataFolder, "games.json")
-                    newDataFile.writeText(str)
-
-                    val jsonList = JSONArray(str)
-
-                    loadJSONArray(jsonList)
-
-//            adapter.updateData(gameList)
-//            adapter.notifyDataSetChanged()
-                    preferenceManager.edit().putString("lastModifiedTime", updateInfo.getString("lastModifiedTime")).apply()
-
-                    progressDialog.dismiss()
-                    println("성공")
-                }, {
-                    val loadSuccess = loadCacheList()
-                    progressDialog.dismiss()
-                    if (loadSuccess)
-                        Toast.makeText(requireContext(), "한국어 타이틀 정보를 확인할 수 없어서, 기존 데이터를 보여줍니다.", Toast.LENGTH_SHORT).show()
-                })
-                request.tag = "update"
-                mRequestQueue.add(request)
-            }
-            else {
-                loadCacheList()
-                progressDialog.dismiss()
-            }
-        }, {
-            val loadSuccess = loadCacheList()
-            progressDialog.dismiss()
-            if (loadSuccess)
-                Toast.makeText(requireContext(), "서버 정보를 확인할 수 없어서, 기존 데이터를 보여줍니다.", Toast.LENGTH_SHORT).show()
-        })
-        updateTimeRequest.tag = "update"
-
-        mRequestQueue.add(updateTimeRequest)
+        downloadData()
 
         return root
     }
@@ -277,7 +211,6 @@ class TransformFragment : Fragment() {
                     .setMultiChoiceItems(devices, mFilterDeviceArr) { dialog, which, isChecked ->
                         mFilterDeviceArr[which] = isChecked
                     }
-                    .setNegativeButton("취소", null)
                     .setPositiveButton("확인") { dialog, which ->
                         val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
                         val newFilterDevice = JSONArray()
@@ -296,7 +229,6 @@ class TransformFragment : Fragment() {
                     .setMultiChoiceItems(capabilities, mFilterCapabilityArr) { dialog, which, isChecked ->
                         mFilterCapabilityArr[which] = isChecked
                     }
-                    .setNegativeButton("취소", null)
                     .setPositiveButton("확인") { dialog, which ->
                         updateList()
                     }
@@ -309,11 +241,98 @@ class TransformFragment : Fragment() {
                     .setMultiChoiceItems(categories, mFilterCategoryArr) { dialog, which, isChecked ->
                         mFilterCategoryArr[which] = isChecked
                     }
-                    .setNegativeButton("취소", null)
                     .setPositiveButton("확인") { dialog, which ->
                         updateList()
                     }
                     .show()
+            }
+            R.id.filter_korean -> {
+                val korean = arrayOf("한국어 지원", "한국어 음성 지원", "한국어 자막 지원")
+                AlertDialog.Builder(requireContext())
+                    .setTitle("지원 범위 선택")
+                    .setSingleChoiceItems(korean, mFilterKorean) { dialog, which ->
+                        mFilterKorean = which
+                    }
+                    .setPositiveButton("확인") { dialog, which ->
+                        updateList()
+                    }
+                    .show()
+            }
+            R.id.sort -> {
+                val korean = arrayOf("이름 순 오름차순", "이름 순 내림차순", "출시일 오름차순", "출시일 내림차순")
+                AlertDialog.Builder(requireContext())
+                    .setTitle("정렬 방식 선택")
+                    .setSingleChoiceItems(korean, mSort) { dialog, which ->
+                        mSort = which
+                    }
+                    .setPositiveButton("확인") { dialog, which ->
+                        val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
+                        preferenceManager.edit().putInt("sort", mSort).apply()
+                        updateList()
+                    }
+                    .show()
+            }
+            R.id.refresh -> {
+                downloadData()
+            }
+            R.id.setting -> {
+                val inflater = requireContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
+                val settingView = inflater.inflate(R.layout.setting_dialog, null)
+
+                val optKorean = settingView.findViewById<RadioButton>(R.id.radio_language_korean)
+                val optEnglish = settingView.findViewById<RadioButton>(R.id.radio_language_english)
+
+                if (mLanguage == "Korean")
+                    optKorean.isChecked = true
+                else
+                    optEnglish.isChecked = true
+
+                val switchNewTitle = settingView.findViewById<SwitchCompat>(R.id.switch_show_new_title)
+                switchNewTitle.isChecked = mShowNewTitle
+
+                val settingDialog = AlertDialog.Builder(requireContext())
+                    .setTitle("설정")
+                    .setView(settingView)
+                    .setNegativeButton("취소", null)
+                    .setPositiveButton("확인") { dialog, which ->
+                        val prevLanguage = mLanguage
+                        mLanguage = if (optKorean.isChecked)
+                            "Korean"
+                        else
+                            "English"
+
+                        mShowNewTitle = switchNewTitle.isChecked
+
+                        val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
+                        preferenceManager.edit()
+                            .putString("language", mLanguage)
+                            .putBoolean("showNewTitle", mShowNewTitle)
+                            .apply()
+
+                        if (prevLanguage != mLanguage)
+                            updateList()
+                    }
+                    .create()
+
+//                val binding = DataBindingUtil.inflate<SettingDialogBinding>(settingDialog.layoutInflater, R.layout.setting_dialog, null, false)
+//                settingDialog.setContentView(binding.root)
+
+                settingDialog.show()
+            }
+            R.id.about -> {
+                val pInfo = requireContext().packageManager.getPackageInfo(requireContext().packageName, 0)
+
+                AlertDialog.Builder(requireContext())
+                    .setTitle("xKorean 정보")
+                    .setMessage("한글화 정보는 엑스박스 정보 카페에서 제공한 데이터를 이용합니다.\n" +
+                    "https://cafe.naver.com/xboxinfo\n\n" +
+                    "앱의 UI 소스 코드는 Gamepass Scores 앱을 활용하였습니다.\n" +
+                    "https://github.com/XeonKHJ/GamePassScores\n\n" +
+                    "키보드 & 마우스 지원 여부는 XboxKBM 사이트에서 제공받고 있습니다.\n" +
+                    "https://xboxkbm.herokuapp.com\n\n" +
+                    "버전: ${pInfo.versionName}")
+                    .setPositiveButton("확인", null)
+                    .create().show()
             }
         }
 
@@ -329,6 +348,14 @@ class TransformFragment : Fragment() {
             if (mFilterDeviceArr[i])
             {
                 useDeviceFilter = true
+                break
+            }
+        }
+
+        var useCategoryFilter = false
+        for (i in mFilterCategoryArr.indices) {
+            if (mFilterCategoryArr[i]) {
+                useCategoryFilter = true
                 break
             }
         }
@@ -416,13 +443,186 @@ class TransformFragment : Fragment() {
                 mFilterCapabilityArr[9] && game.discount.indexOf("무료") == -1)
                 return@forEach
 
+            if (useCategoryFilter) {
+                var hasCategory = false
+                for (category in game.categories) {
+                    if (mFilterCategoryArr[0] && category == "family & kids" ||
+                        mFilterCategoryArr[1] && category == "fighting" ||
+                        mFilterCategoryArr[2] && category == "educational" ||
+                        mFilterCategoryArr[3] && category == "racing & flying" ||
+                        mFilterCategoryArr[4] && category == "role playing" ||
+                        mFilterCategoryArr[4] && category == "multi-player online battle arena" ||
+                        mFilterCategoryArr[5] && category == "shooter" ||
+                        mFilterCategoryArr[6] && category == "sports" ||
+                        mFilterCategoryArr[7] && category == "simulation" ||
+                        mFilterCategoryArr[8] && category == "action & adventure" ||
+                        mFilterCategoryArr[9] && category == "music" ||
+                        mFilterCategoryArr[10] && category == "strategy" ||
+                        mFilterCategoryArr[11] && category == "card + board" ||
+                        mFilterCategoryArr[12] && category == "classics" ||
+                        mFilterCategoryArr[13] && category == "puzzle & trivia" ||
+                        mFilterCategoryArr[14] && category == "platformer" ||
+                        mFilterCategoryArr[15] && category == "casino" ||
+                        mFilterCategoryArr[16] && category == "other") {
+                        hasCategory = true
+                        break
+                    }
+                }
+
+                if (!hasCategory)
+                    return@forEach
+            }
+
+            if (mFilterKorean == 1 && game.localize.indexOf("음성") == -1 ||
+                mFilterKorean == 2 && game.localize.indexOf("자막") == -1)
+                return@forEach
+
             filteredList.add(game)
 
-            filteredList.sortByDescending { it.releaseDate }
+            if (mSort == 0) {
+                if (mLanguage == "Korean")
+                    filteredList.sortBy { it.koreanName }
+                else
+                    filteredList.sortBy { it.name }
+            }
+            else if (mSort == 1) {
+                if (mLanguage == "Korean")
+                    filteredList.sortByDescending { it.koreanName }
+                else
+                    filteredList.sortByDescending { it.name }
+            }
+            else if (mSort == 2) {
+                if (mLanguage == "Korean")
+                    filteredList.sortWith(compareBy<Game> { it.releaseDate }.thenBy { it.koreanName })
+                else
+                    filteredList.sortWith(compareBy<Game> { it.releaseDate }.thenBy { it.name })
+            }
+            else {
+                if (mLanguage == "Korean")
+                    filteredList.sortWith(compareByDescending<Game> { it.releaseDate }.thenBy { it.koreanName })
+                else
+                    filteredList.sortWith(compareByDescending<Game> { it.releaseDate }.thenBy { it.name })
+            }
         }
 
         transformViewModel.update(filteredList)
         (requireActivity() as MainActivity).setTitle("한국어 지원 타이틀: ${DecimalFormat("#,###").format(filteredList.size)}개")
+    }
+
+    private fun downloadData() {
+        fun loadJSONArray(jsonList: JSONArray) {
+            val gson = Gson()
+
+            mGameList.clear()
+            for (i in 0 until jsonList.length()) {
+                mGameList.add(gson.fromJson(jsonList.getString(i), Game::class.java))
+            }
+
+            updateList()
+        }
+
+        fun loadCacheList() : Boolean {
+            val dataFolder = requireContext().getDir("xKorean", Context.MODE_PRIVATE)
+            val dataFile = File(dataFolder, "games.json")
+            return if (dataFile.exists()) {
+                loadJSONArray(JSONArray(dataFile.readText()))
+                true
+            }
+            else
+            {
+                AlertDialog.Builder(requireContext())
+                    .setTitle("데이터 수신 오류")
+                    .setMessage("한국어 정보를 확인할 수 없습니다. 잠시 후 다시 시도해 주십시오.")
+                    .setPositiveButton("확인", null)
+                    .create().show()
+                false
+            }
+        }
+
+        val progressDialog = ProgressDialog(requireContext())
+        progressDialog.show()
+
+        val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
+        val dataFolder = requireContext().getDir("xKorean", Context.MODE_PRIVATE)
+
+        val updateTimeRequest = JsonObjectRequest(Request.Method.POST, "https://xbox-korean-viewer-server2.herokuapp.com/last_modified_time", null, { updateInfo ->
+            val lastModifiedTime = preferenceManager.getString("lastModifiedTime", "")
+            if (lastModifiedTime == "" || lastModifiedTime != updateInfo.getString("lastModifiedTime")) {
+                val request = BinaryArrayRequest("https://xbox-korean-viewer-server2.herokuapp.com/title_list_zip", {
+                    val gzipInputStream = GZIPInputStream(ByteArrayInputStream(it))
+                    val outputStream = ByteArrayOutputStream()
+
+                    val dataBuffer = ByteArray(32768)
+                    var len = gzipInputStream.read(dataBuffer)
+                    while (len > 0) {
+                        outputStream.write(dataBuffer, 0, len)
+                        len = gzipInputStream.read(dataBuffer)
+                    }
+                    gzipInputStream.close()
+
+                    val str = outputStream.toString("utf-8")
+                    outputStream.close()
+
+                    val newDataFile = File(dataFolder, "games.json")
+                    newDataFile.writeText(str)
+
+                    val jsonList = JSONArray(str)
+
+                    loadJSONArray(jsonList)
+
+//            adapter.updateData(gameList)
+//            adapter.notifyDataSetChanged()
+                    preferenceManager.edit().putString("lastModifiedTime", updateInfo.getString("lastModifiedTime")).apply()
+
+                    progressDialog.dismiss()
+                    println("성공")
+                }, {
+                    val loadSuccess = loadCacheList()
+                    progressDialog.dismiss()
+                    if (loadSuccess)
+                        Toast.makeText(requireContext(), "한국어 타이틀 정보를 확인할 수 없어서, 기존 데이터를 보여줍니다.", Toast.LENGTH_SHORT).show()
+                })
+                request.tag = "update"
+                mRequestQueue.add(request)
+            }
+            else {
+                loadCacheList()
+                progressDialog.dismiss()
+            }
+        }, {
+            val loadSuccess = loadCacheList()
+            progressDialog.dismiss()
+            if (loadSuccess)
+                Toast.makeText(requireContext(), "서버 정보를 확인할 수 없어서, 기존 데이터를 보여줍니다.", Toast.LENGTH_SHORT).show()
+        })
+        updateTimeRequest.tag = "update"
+
+        mRequestQueue.add(updateTimeRequest)
+    }
+
+    inner class EditionAdapter(private val editionList: List<Edition>) : BaseAdapter() {
+        override fun getCount(): Int {
+            return editionList.size
+        }
+
+        override fun getItem(position: Int): Any? {
+            return null
+        }
+
+        override fun getItemId(p0: Int): Long {
+            return 0
+        }
+
+        override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
+            val vi = requireContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
+            val v = vi.inflate(R.layout.item_edition, null)
+
+            val textViewItemEdition = v.findViewById<TextView>(R.id.text_view_item_edition)
+            textViewItemEdition.text = editionList[position].name
+
+            return v
+        }
+
     }
 
     inner class TransformAdapter :
@@ -444,7 +644,10 @@ class TransformFragment : Fragment() {
 
         override fun onBindViewHolder(holder: TransformViewHolder, position: Int) {
             val game = getItem(position)
-            holder.textView.text = game.koreanName
+            holder.textView.text = if (mLanguage == "Korean")
+                game.koreanName
+            else
+                game.name
 
             val localize = game.localize.replace("/", "\n")
             holder.localizeTextView.text = localize
@@ -601,7 +804,30 @@ class TransformFragment : Fragment() {
             }
 
             val onClickListener = View.OnClickListener {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(game.storeLink)))
+                //startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(game.storeLink)))
+
+                val editionViewModel = ViewModelProvider(this@TransformFragment).get(EditionViewModel::class.java)
+
+                val inflater = requireContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
+                val editionView = inflater.inflate(R.layout.edition_dialog, null)
+
+                val editionGridView = editionView.findViewById<GridView>(R.id.edition_grid_view)
+
+                val editionList = mutableListOf<Edition>()
+                game.bundle.forEach { edition ->
+                    editionList.add(edition)
+                }
+
+                val adapter = EditionAdapter(editionList)
+                editionGridView.adapter = adapter
+
+                val dialog = AlertDialog.Builder(requireContext())
+                    .setTitle("에디션 선택")
+                    .setView(editionView)
+                    .setPositiveButton("닫기", null)
+                    .create()
+                dialog.show()
+                dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             }
 
             holder.imageView.setOnClickListener(onClickListener)

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="10dp">
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="게임명 표시 언어"/>
+
+    <RadioGroup
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <RadioButton
+            android:id="@+id/radio_language_korean"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="한국어" />
+
+        <RadioButton
+            android:id="@+id/radio_language_english"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="영어" />
+    </RadioGroup>
+
+    <Space
+        android:layout_width="match_parent"
+        android:layout_height="10dp" />
+
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/switch_show_new_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="시작시 새로 확인된 타이틀 표시" />
+
+
+</LinearLayout>
