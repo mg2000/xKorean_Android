@@ -1,5 +1,6 @@
 package com.mg2000.xkorean
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
@@ -11,18 +12,25 @@ import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.ViewModelProvider
 import com.mg2000.xkorean.databinding.ActivityMainBinding
+import com.mg2000.xkorean.ui.transform.TransformViewModel
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var binding: ActivityMainBinding
 
+    private lateinit var mainViewModel: MainViewModel
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
+        mainViewModel = ViewModelProvider(this, MainViewModel.Factory(IntentRepo())).get(MainViewModel::class.java)
         setContentView(binding.root)
         setSupportActionBar(binding.appBarMain.toolbar)
+
+
 
 //        binding.appBarMain.fab?.setOnClickListener { view ->
 //            Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
@@ -77,6 +85,11 @@ class MainActivity : AppCompatActivity() {
 
     fun setTitle(title: String) {
         binding.appBarMain.toolbar.title = title
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        mainViewModel.intent.set(intent!!)
     }
 
     override fun onSupportNavigateUp(): Boolean {

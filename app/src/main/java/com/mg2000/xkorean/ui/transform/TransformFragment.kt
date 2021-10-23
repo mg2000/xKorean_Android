@@ -1,6 +1,7 @@
 package com.mg2000.xkorean.ui.transform
 
 import android.app.ActionBar
+import android.app.SearchManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.*
@@ -33,9 +34,11 @@ import androidx.core.view.MenuCompat
 import androidx.databinding.DataBindingUtil
 import androidx.preference.PreferenceManager
 import com.android.volley.toolbox.*
+import com.c.progress_dialog.BlackProgressDialog
+import com.mg2000.xkorean.IntentRepo
 import com.mg2000.xkorean.MainActivity
+import com.mg2000.xkorean.MainViewModel
 import com.mg2000.xkorean.databinding.SettingDialogBinding
-import com.techiness.progressdialoglibrary.ProgressDialog
 import org.joda.time.format.ISODateTimeFormat
 import java.io.*
 import java.text.DecimalFormat
@@ -49,6 +52,7 @@ import java.text.DecimalFormat
 class TransformFragment : Fragment() {
 
     private lateinit var transformViewModel: TransformViewModel
+    private lateinit var mainViewModel: MainViewModel
     private var _binding: FragmentTransformBinding? = null
 
     // This property is only valid between onCreateView and
@@ -73,6 +77,13 @@ class TransformFragment : Fragment() {
     private var mGameList = mutableListOf<Game>()
     private var mLanguage = "Korean"
     private var mShowNewTitle = true
+    private var mSearchKeyword = ""
+
+    private val mMessageTemplateMap = mapOf("dlregiononly" to "다음 지역의 스토어에서 다운로드 받아야 한국어가 지원됩니다: [name]",
+        "packageonly" to "패키지 버전만 한국어를 지원합니다.",
+        "usermode" to "이 게임은 유저 모드를 설치하셔야 한국어가 지원됩니다.",
+        "360market" to "360 마켓플레이스를 통해서만 구매하실 수 있습니다.",
+        "windowsmod" to "이 게임은 윈도우에서 한글 패치를 설치하셔야 한국어가 지원됩니다.")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -87,6 +98,12 @@ class TransformFragment : Fragment() {
         transformViewModel = ViewModelProvider(this).get(TransformViewModel::class.java)
         _binding = FragmentTransformBinding.inflate(inflater, container, false)
         val root: View = binding.root
+
+        mainViewModel = ViewModelProvider(requireActivity(), MainViewModel.Factory(IntentRepo())).get(MainViewModel::class.java)
+        mainViewModel.intent.get.observe(viewLifecycleOwner, {
+            mSearchKeyword = it.getStringExtra(SearchManager.QUERY)!!
+            updateList()
+        })
 
         val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
         val preFilterDevice = JSONArray(preferenceManager.getString("filterDevice", "[ false, false, false, false, false, false, false ]"))
@@ -196,6 +213,17 @@ class TransformFragment : Fragment() {
         val result = super.onCreateOptionsMenu(menu, inflater)
 
         inflater.inflate(R.menu.overflow, menu)
+
+        val searchManager = requireContext().getSystemService(Context.SEARCH_SERVICE) as SearchManager
+        (menu.findItem(R.id.search).actionView as SearchView).apply {
+            setSearchableInfo(searchManager.getSearchableInfo(requireActivity().componentName))
+        }
+        (menu.findItem(R.id.search).actionView as SearchView).setOnCloseListener {
+            mSearchKeyword = ""
+            updateList()
+
+            false
+        }
 
         MenuCompat.setGroupDividerEnabled(menu, true)
 
@@ -477,6 +505,12 @@ class TransformFragment : Fragment() {
                 mFilterKorean == 2 && game.localize.indexOf("자막") == -1)
                 return@forEach
 
+            if (mSearchKeyword != "" &&
+                game.name.lowercase().indexOf(mSearchKeyword.lowercase()) == -1 &&
+                game.koreanName.lowercase().indexOf(mSearchKeyword.lowercase()) == -1) {
+                return@forEach
+            }
+
             filteredList.add(game)
 
             if (mSort == 0) {
@@ -539,7 +573,7 @@ class TransformFragment : Fragment() {
             }
         }
 
-        val progressDialog = ProgressDialog(requireContext())
+        val progressDialog = BlackProgressDialog(requireContext(), "한국어 데이터 확인중...")
         progressDialog.show()
 
         val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
@@ -600,7 +634,65 @@ class TransformFragment : Fragment() {
         mRequestQueue.add(updateTimeRequest)
     }
 
-    inner class EditionAdapter(private val editionList: List<Edition>) : BaseAdapter() {
+    fun getImage(id: String, playAnywhere: String, seriesXS: String, oneS: String, pc: String, thumbnail: String, onLoadedImageListener: (Bitmap?) -> Unit) {
+        val dataFolder = requireContext().getDir("xKorean", Context.MODE_PRIVATE)
+        val cacheFolder = File(dataFolder, "cache")
+
+        val cacheName = StringBuilder(id)
+        when {
+            playAnywhere == "O" -> {
+                if (seriesXS == "O")
+                    cacheName.append("_playanywhere_xs")
+                else
+                    cacheName.append("_playanywhere_os")
+            }
+            seriesXS == "O" -> cacheName.append("_xs")
+            oneS == "O" -> cacheName.append("_os")
+            pc == "O" -> cacheName.append("_pc")
+        }
+        cacheName.append(".jpg")
+
+        val cacheFile = File(cacheFolder, cacheName.toString())
+        if (cacheFile.exists())
+            onLoadedImageListener.invoke(BitmapFactory.decodeFile(cacheFile.absolutePath))
+        else {
+            val request = ImageRequest(thumbnail, {
+                val titleImage = Bitmap.createBitmap(584, 800, Bitmap.Config.ARGB_8888)
+
+                var header: Bitmap? = null
+                when {
+                    playAnywhere == "O" -> {
+                        header = if (seriesXS == "O")
+                            mPlayAnywhereSeriesTitleHeader
+                        else
+                            mPlayAnywhereTitleHeader
+                    }
+                    seriesXS == "O" -> header = mSeriesTitleHeader
+                    oneS == "O" -> header = mOneTitleHeader
+                    pc == "O" -> header = mWindowsTitleHeader
+                }
+
+                val oriImage = Bitmap.createScaledBitmap(it, 584, 800, true)
+                val c = Canvas(titleImage)
+                c.drawBitmap(oriImage, 0f, 0f, Paint(Paint.FILTER_BITMAP_FLAG))
+                if (header != null)
+                    c.drawBitmap(header, 0f, 0f, Paint(Paint.FILTER_BITMAP_FLAG))
+
+                FileOutputStream(cacheFile).use { fos ->
+                    titleImage.compress(Bitmap.CompressFormat.JPEG, 75, fos)
+                }
+
+                onLoadedImageListener.invoke(titleImage)
+            }, 0, 0, ImageView.ScaleType.FIT_XY, null, {
+                println("이미지 다운로드 에러")
+                onLoadedImageListener.invoke(null)
+            })
+
+            mRequestQueue.add(request)
+        }
+    }
+
+    inner class EditionAdapter(private val editionList: List<Edition>, private val playAnywhere: String, private val languageCode: String) : BaseAdapter() {
         override fun getCount(): Int {
             return editionList.size
         }
@@ -617,8 +709,63 @@ class TransformFragment : Fragment() {
             val vi = requireContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
             val v = vi.inflate(R.layout.item_edition, null)
 
+            val edition = editionList[position]
+
             val textViewItemEdition = v.findViewById<TextView>(R.id.text_view_item_edition)
-            textViewItemEdition.text = editionList[position].name
+            textViewItemEdition.text = edition.name
+
+            var gamePassTag = ""
+            if (edition.gamePassPC != "" || edition.gamePassConsole != "" || edition.gamePassCloud != "")
+                gamePassTag = "게임패스"
+
+            if (edition.gamePassNew == "O")
+                gamePassTag += " 신규"
+            else if (edition.gamePassEnd == "O")
+                gamePassTag += " 만기"
+
+            val textViewEditionGamePassBack = v.findViewById<TextView>(R.id.text_view_edition_game_pass_back)
+
+            if (gamePassTag == "")
+                textViewEditionGamePassBack.visibility = View.INVISIBLE
+            else
+                textViewEditionGamePassBack.visibility = View.VISIBLE
+
+            val textViewEditionGamePassPC = v.findViewById<TextView>(R.id.text_view_edition_game_pass_pc)
+            if (edition.gamePassPC != "")
+                textViewEditionGamePassPC.text = "피"
+            else
+                textViewEditionGamePassPC.text = ""
+
+            val textViewEditionGamePassConsole = v.findViewById<TextView>(R.id.text_view_edition_game_pass_console)
+            if (edition.gamePassConsole != "")
+                textViewEditionGamePassConsole.text = "엑"
+            else
+                textViewEditionGamePassConsole.text = ""
+
+            val textViewEditionGamePassCloud = v.findViewById<TextView>(R.id.text_view_edition_game_pass_cloud)
+            if (edition.gamePassCloud != "")
+                textViewEditionGamePassCloud.text = "클"
+            else
+                textViewEditionGamePassCloud.text = ""
+
+            val textViewEditionMessage = v.findViewById<TextView>(R.id.text_view_edition_message)
+            if (edition.discountType != "") {
+                textViewEditionMessage.text = edition.discountType
+                textViewEditionMessage.visibility = View.VISIBLE
+            }
+            else
+                textViewEditionMessage.visibility = View.INVISIBLE
+
+
+            val imageViewItemEdition = v.findViewById<ImageView>(R.id.image_view_item_edition)
+
+            getImage(edition.id, playAnywhere, edition.seriesXS, edition.oneS, edition.pc, edition.thumbnail) {
+                imageViewItemEdition.setImageBitmap(it)
+            }
+
+            imageViewItemEdition.setOnClickListener {
+                goToStore(languageCode, edition.id)
+            }
 
             return v
         }
@@ -732,12 +879,8 @@ class TransformFragment : Fragment() {
                     discount = game.bundle[0].discountType;
             }
 
-            if (discount == "곧 출시") {
-                val parser = ISODateTimeFormat.dateTime()
-                val releaseDate = parser.parseDateTime(game.releaseDate)
-
-                discount = releaseDate.toString("MM월 dd일 HH시 출시")
-            }
+            if (discount == "곧 출시")
+                discount = getReleaseTime(game.releaseDate)
 
             if (discount != "") {
                 holder.messageTextView.text = discount
@@ -748,86 +891,130 @@ class TransformFragment : Fragment() {
 
             holder.imageView.setImageBitmap(null)
 
-            val dataFolder = requireContext().getDir("xKorean", Context.MODE_PRIVATE)
-            val cacheFolder = File(dataFolder, "cache")
-
-            val cacheName = StringBuilder(game.id)
-            when {
-                game.playAnywhere == "O" -> {
-                    if (game.seriesXS == "O")
-                        cacheName.append("_playanywhere_xs")
-                    else
-                        cacheName.append("_playanywhere_os")
-                }
-                game.seriesXS == "O" -> cacheName.append("_xs")
-                game.oneS == "O" -> cacheName.append("_os")
-                game.pc == "O" -> cacheName.append("_pc")
-            }
-            cacheName.append(".jpg")
-
-            val cacheFile = File(cacheFolder, cacheName.toString())
-            if (cacheFile.exists())
-                holder.imageView.setImageBitmap(BitmapFactory.decodeFile(cacheFile.absolutePath))
-            else {
-                val request = ImageRequest(game.thumbnail, {
-                    val titleImage = Bitmap.createBitmap(584, 800, Bitmap.Config.ARGB_8888)
-
-                    var header: Bitmap? = null
-                    when {
-                        game.playAnywhere == "O" -> {
-                            header = if (game.seriesXS == "O")
-                                mPlayAnywhereSeriesTitleHeader
-                            else
-                                mPlayAnywhereTitleHeader
-                        }
-                        game.seriesXS == "O" -> header = mSeriesTitleHeader
-                        game.oneS == "O" -> header = mOneTitleHeader
-                        game.pc == "O" -> header = mWindowsTitleHeader
-                    }
-
-                    val oriImage = Bitmap.createScaledBitmap(it, 584, 800, true)
-                    val c = Canvas(titleImage)
-                    c.drawBitmap(oriImage, 0f, 0f, Paint(Paint.FILTER_BITMAP_FLAG))
-                    if (header != null)
-                        c.drawBitmap(header, 0f, 0f, Paint(Paint.FILTER_BITMAP_FLAG))
-
-                    FileOutputStream(cacheFile).use { fos ->
-                        titleImage.compress(Bitmap.CompressFormat.JPEG, 75, fos)
-                    }
-
-                    holder.imageView.setImageBitmap(titleImage)
-                }, 0, 0, ImageView.ScaleType.FIT_XY, null, {
-                    println("이미지 다운로드 에러")
-                })
-
-                mRequestQueue.add(request)
+            getImage(game.id, game.playAnywhere, game.seriesXS, game.oneS, game.pc, game.thumbnail) {
+                holder.imageView.setImageBitmap(it)
             }
 
             val onClickListener = View.OnClickListener {
-                //startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(game.storeLink)))
+                fun getLanguageCodeFromUrl(url: String) : String {
+                    var startIdx = url.indexOf("com/")
 
-                val editionViewModel = ViewModelProvider(this@TransformFragment).get(EditionViewModel::class.java)
+                    var endIdx = -1
+                    if (startIdx > 0) {
+                        startIdx += "/com".length
+                        endIdx = url.indexOf("/", startIdx)
+                    }
 
-                val inflater = requireContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
-                val editionView = inflater.inflate(R.layout.edition_dialog, null)
-
-                val editionGridView = editionView.findViewById<GridView>(R.id.edition_grid_view)
-
-                val editionList = mutableListOf<Edition>()
-                game.bundle.forEach { edition ->
-                    editionList.add(edition)
+                    return if (endIdx > 0)
+                        url.substring(startIdx, endIdx)
+                    else
+                        ""
                 }
 
-                val adapter = EditionAdapter(editionList)
-                editionGridView.adapter = adapter
+                fun checkEdition() {
+                    if (game.bundle.isEmpty())
+                        goToStore(getLanguageCodeFromUrl(game.storeLink), game.id)
+                    else {
+                        if (game.isAvailable() || game.bundle.isNotEmpty()) {
+                            val inflater = requireContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
+                            val editionView = inflater.inflate(R.layout.edition_dialog, null)
 
-                val dialog = AlertDialog.Builder(requireContext())
-                    .setTitle("에디션 선택")
-                    .setView(editionView)
-                    .setPositiveButton("닫기", null)
-                    .create()
-                dialog.show()
-                dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                            val editionGridView = editionView.findViewById<GridView>(R.id.edition_grid_view)
+
+                            val editionList = mutableListOf<Edition>()
+                            if (game.isAvailable()) {
+                                editionList.add(Edition(game.id,
+                                    if (mLanguage == "Korean") game.koreanName else game.name,
+                                    game.price,
+                                    if (game.discount == "곧 출시") getReleaseTime(game.releaseDate) else game.discount,
+                                    game.thumbnail,
+                                    game.seriesXS,
+                                    game.oneS,
+                                    game.pc,
+                                    game.gamePassPC,
+                                    game.gamePassConsole,
+                                    game.gamePassCloud,
+                                    game.gamePassNew,
+                                    game.gamePassEnd,
+                                    game.releaseDate
+                                ))
+                            }
+
+                            game.bundle.forEach { edition ->
+                                editionList.add(edition)
+                            }
+
+                            val adapter = EditionAdapter(editionList, game.playAnywhere, getLanguageCodeFromUrl(game.storeLink))
+                            editionGridView.adapter = adapter
+
+                            val dialog = AlertDialog.Builder(requireContext())
+                                .setTitle("에디션 선택")
+                                .setView(editionView)
+                                .setPositiveButton("닫기", null)
+                                .create()
+                            dialog.show()
+                            dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                        }
+                        else
+                            goToStore(getLanguageCodeFromUrl(game.storeLink), game.id)
+                    }
+                }
+
+                if (game.message == "")
+                    checkEdition()
+                else {
+                    val messageData = game.message.split("\n")
+
+                    val messageBuilder = StringBuilder()
+                    var store360Url = ""
+                    for (messagePart in messageData) {
+                        val parsePart = messagePart.split("=")
+                        val code = parsePart[0].lowercase()
+
+                        if (mMessageTemplateMap.containsKey(code)) {
+                            fun convertToCountryCodeToStr(code: String) : String {
+                                return when(code.lowercase()) {
+                                    "kr" -> "한국"
+                                    "us" -> "미국"
+                                    "jp" -> "일본"
+                                    "hk" -> "홍콩"
+                                    "gb" -> "영국"
+                                    else -> ""
+                                }
+                            }
+
+                            var messageStr = mMessageTemplateMap.getValue(code)
+                            if (messageStr.indexOf("[name]") >= 0 && parsePart.size > 1) {
+                                messageStr = if (code == "dlregiononly")
+                                    messageStr.replace("[name]", convertToCountryCodeToStr(parsePart[1]))
+                                else
+                                    messageStr.replace("[name]", parsePart[1])
+                            }
+
+                            messageBuilder.append("* ").append(messageStr).append("\n")
+
+                            if (code == "360market" && parsePart.size > 1)
+                                store360Url = parsePart[1]
+                        }
+                    }
+
+                    val messageDialogBuilder = AlertDialog.Builder(requireContext())
+                        .setTitle("스토어 이동전에...")
+                        .setMessage(messageBuilder.toString().trim())
+                        .setPositiveButton("스토어 이동") { _, _ ->
+                            checkEdition()
+                        }
+                        .setNegativeButton("닫기", null)
+
+                    if (store360Url != "") {
+                        messageDialogBuilder.setNeutralButton("360 마켓 이동") { _, _ ->
+                            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(store360Url)))
+                        }
+                    }
+
+                    messageDialogBuilder.create().show()
+                }
+
             }
 
             holder.imageView.setOnClickListener(onClickListener)
@@ -836,6 +1023,17 @@ class TransformFragment : Fragment() {
 //        fun updateData(updateList: List<Game>) {
 //            mItems.addAll(updateList)
 //        }
+    }
+
+    fun getReleaseTime(releaseDate: String) : String {
+        val parser = ISODateTimeFormat.dateTime()
+        val releaseTime = parser.parseDateTime(releaseDate)
+
+        return releaseTime.toString("MM월 dd일 HH시 출시")
+    }
+
+    fun goToStore(languageCode: String, id: String) {
+        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.microsoft.com/$languageCode/p/xkorean/$id")))
     }
 
     class TransformViewHolder(binding: ItemTransformBinding) :

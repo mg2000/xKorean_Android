@@ -92,13 +92,14 @@
         tools:text="피" />
 
     <TextView
-        android:id="@+id/text_view_message"
+        android:id="@+id/text_view_edition_message"
         android:layout_width="180dp"
         android:layout_height="31dp"
         android:background="#CC000000"
         android:visibility="invisible"
         android:textColor="#ffffff"
         android:gravity="center"
+        android:layout_alignStart="@id/image_view_item_edition"
         android:layout_above="@id/text_view_edition_game_pass_back"/>
 
 </RelativeLayout>
