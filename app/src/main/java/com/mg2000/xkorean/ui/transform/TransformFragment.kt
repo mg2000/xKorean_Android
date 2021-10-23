@@ -60,6 +60,8 @@ class TransformFragment : Fragment() {
     private lateinit var mWindowsTitleHeader: Bitmap
 
     private val mFilterDeviceArr = booleanArrayOf(false, false, false, false, false, false, false)
+    private val mFilterCapabilityArr = booleanArrayOf(false, false, false, false, false, false, false, false, false, false)
+    private val mFilterCategoryArr = booleanArrayOf(false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false)
     private var mGameList = mutableListOf<Game>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -83,10 +85,22 @@ class TransformFragment : Fragment() {
             updateList()
         }
 
-        fun loadCacheList() {
+        fun loadCacheList() : Boolean {
             val dataFolder = requireContext().getDir("xKorean", Context.MODE_PRIVATE)
             val dataFile = File(dataFolder, "games.json")
-            loadJSONArray(JSONArray(dataFile.readText()))
+            return if (dataFile.exists()) {
+                loadJSONArray(JSONArray(dataFile.readText()))
+                true
+            }
+            else
+            {
+                AlertDialog.Builder(requireContext())
+                    .setTitle("데이터 수신 오류")
+                    .setMessage("한국어 정보를 확인할 수 없습니다. 잠시 후 다시 시도해 주십시오.")
+                    .setPositiveButton("확인", null)
+                    .create().show()
+                false
+            }
         }
 
         transformViewModel = ViewModelProvider(this).get(TransformViewModel::class.java)
@@ -182,11 +196,10 @@ class TransformFragment : Fragment() {
         val progressDialog = ProgressDialog(requireContext())
         progressDialog.show()
 
-        val updateTimeRequest = JsonObjectRequest(Request.Method.POST, "http://192.168.2.37:3000/last_modified_time", null, { updateInfo ->
-            val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
+        val updateTimeRequest = JsonObjectRequest(Request.Method.POST, "https://xbox-korean-viewer-server2.herokuapp.com/last_modified_time", null, { updateInfo ->
             val lastModifiedTime = preferenceManager.getString("lastModifiedTime", "")
             if (lastModifiedTime == "" || lastModifiedTime != updateInfo.getString("lastModifiedTime")) {
-                val request = BinaryArrayRequest("http://192.168.2.37:3000/title_list_zip", {
+                val request = BinaryArrayRequest("https://xbox-korean-viewer-server2.herokuapp.com/title_list_zip", {
                     val gzipInputStream = GZIPInputStream(ByteArrayInputStream(it))
                     val outputStream = ByteArrayOutputStream()
 
@@ -215,9 +228,10 @@ class TransformFragment : Fragment() {
                     progressDialog.dismiss()
                     println("성공")
                 }, {
-                    loadCacheList()
+                    val loadSuccess = loadCacheList()
                     progressDialog.dismiss()
-                    Toast.makeText(requireContext(), "한국어 타이틀 정보를 확인할 수 없어서, 기존 데이터를 보여줍니다.", Toast.LENGTH_SHORT).show()
+                    if (loadSuccess)
+                        Toast.makeText(requireContext(), "한국어 타이틀 정보를 확인할 수 없어서, 기존 데이터를 보여줍니다.", Toast.LENGTH_SHORT).show()
                 })
                 request.tag = "update"
                 mRequestQueue.add(request)
@@ -227,9 +241,10 @@ class TransformFragment : Fragment() {
                 progressDialog.dismiss()
             }
         }, {
-            loadCacheList()
+            val loadSuccess = loadCacheList()
             progressDialog.dismiss()
-            Toast.makeText(requireContext(), "서버 정보를 확인할 수 없어서, 기존 데이터를 보여줍니다.", Toast.LENGTH_SHORT).show()
+            if (loadSuccess)
+                Toast.makeText(requireContext(), "서버 정보를 확인할 수 없어서, 기존 데이터를 보여줍니다.", Toast.LENGTH_SHORT).show()
         })
         updateTimeRequest.tag = "update"
 
@@ -274,6 +289,32 @@ class TransformFragment : Fragment() {
                     }
                     .show()
             }
+            R.id.filter_capability -> {
+                val capabilities = arrayOf("게임패스", "할인", "플레이 애니웨어", "돌비 애트모스", "키보드/마우스", "로컬 협동", "온라인 협동", "최대 120프레임", "프레임 부스트", "무료(F2P)")
+                AlertDialog.Builder(requireContext())
+                    .setTitle("특성 선택")
+                    .setMultiChoiceItems(capabilities, mFilterCapabilityArr) { dialog, which, isChecked ->
+                        mFilterCapabilityArr[which] = isChecked
+                    }
+                    .setNegativeButton("취소", null)
+                    .setPositiveButton("확인") { dialog, which ->
+                        updateList()
+                    }
+                    .show()
+            }
+            R.id.filter_category -> {
+                val categories = arrayOf("가족 & 아이들", "격투", "교육", "레이싱 & 비행", "롤 플레잉", "멀티플레이 온라인 배틀 아레나", "슈터", "스포츠", "시뮬레이션", "액션 & 어드벤처", "음악", "전략", "카드 + 보드", "클래식", "퍼즐 & 상식", "플랫포머", "도박", "기타")
+                AlertDialog.Builder(requireContext())
+                    .setTitle("장르 선택")
+                    .setMultiChoiceItems(categories, mFilterCategoryArr) { dialog, which, isChecked ->
+                        mFilterCategoryArr[which] = isChecked
+                    }
+                    .setNegativeButton("취소", null)
+                    .setPositiveButton("확인") { dialog, which ->
+                        updateList()
+                    }
+                    .show()
+            }
         }
 
         return super.onOptionsItemSelected(item)
@@ -283,9 +324,9 @@ class TransformFragment : Fragment() {
         val filteredList = mutableListOf<Game>()
 
         var useDeviceFilter = false
-        for (element in mFilterDeviceArr)
+        for (i in 0 until mFilterDeviceArr.size - 1)
         {
-            if (element)
+            if (mFilterDeviceArr[i])
             {
                 useDeviceFilter = true
                 break
@@ -294,19 +335,91 @@ class TransformFragment : Fragment() {
 
         mGameList.forEach { game ->
             if (useDeviceFilter) {
-                if (mFilterDeviceArr[0] && game.seriesXS == "" ||
-                    mFilterDeviceArr[1] && game.oneXEnhanced == "" ||
-                    mFilterDeviceArr[2] && game.oneS == "" ||
-                    mFilterDeviceArr[3] && game.x360 == "" ||
-                    mFilterDeviceArr[4] && game.og == "" ||
-                    mFilterDeviceArr[5] && game.pc == "" ||
-                    mFilterDeviceArr[6] && game.gamePassCloud == "")
+                if (!(mFilterDeviceArr[0] && game.seriesXS == "O" ||
+                    mFilterDeviceArr[1] && game.oneXEnhanced == "O" ||
+                    mFilterDeviceArr[2] && game.oneS == "O" ||
+                    mFilterDeviceArr[3] && game.x360 == "O" ||
+                    mFilterDeviceArr[4] && game.og == "O" ||
+                    mFilterDeviceArr[5] && game.pc == "O"))
                     return@forEach
             }
 
-            filteredList.add(game)
-        }
+            if ((mFilterDeviceArr[0] || mFilterDeviceArr[1] || mFilterDeviceArr[2] || mFilterDeviceArr[3] || mFilterDeviceArr[4] || mFilterDeviceArr[6]) && !mFilterDeviceArr[5] && game.message.indexOf("windowsMod") >= 0)
+                return@forEach
 
+            if (mFilterDeviceArr[6]) {
+                if (game.gamePassCloud == "") {
+                    if (game.bundle.isEmpty())
+                        return@forEach
+                    else {
+                        var supportCloud = false
+                        for (bundle in game.bundle) {
+                            if (bundle.gamePassCloud == "O") {
+                                supportCloud = true
+                                break
+                            }
+                        }
+
+                        if (!supportCloud)
+                            return@forEach
+                    }
+                }
+            }
+
+            if (mFilterCapabilityArr[0]) {
+                if (game.gamePassPC == "" && game.gamePassConsole == "" && game.gamePassCloud == "") {
+                    if (game.bundle.isNotEmpty()) {
+                        var gamePass = false
+                        for (bundle in game.bundle) {
+                            if (bundle.gamePassPC == "O" || bundle.gamePassConsole == "O" || bundle.gamePassCloud == "O") {
+                                gamePass = true
+                                break
+                            }
+                        }
+
+                        if (!gamePass)
+                            return@forEach
+                    }
+                    else
+                        return@forEach
+                }
+            }
+
+            if (mFilterCapabilityArr[1]) {
+                if (game.discount.indexOf("출시") >= 0)
+                    return@forEach
+
+                if ((game.discount == "" || game.discount == "판매 중지" || game.discount.indexOf("무료") >= 0) && game.bundle.isEmpty())
+                    return@forEach
+
+                if (game.discount.indexOf("할인") == -1 && game.bundle.isNotEmpty()) {
+                    var discount = false
+                    for (bundle in game.bundle) {
+                        if (bundle.discountType.indexOf("할인") >= 0) {
+                            discount = true
+                            break
+                        }
+                    }
+
+                    if (!discount)
+                        return@forEach
+                }
+            }
+
+            if (mFilterCapabilityArr[2] && game.playAnywhere == "" ||
+                mFilterCapabilityArr[3] && game.dolbyAtmos == "" ||
+                mFilterCapabilityArr[4] && game.consoleKeyboardMouse == "" ||
+                mFilterCapabilityArr[5] && game.localCoop == "" ||
+                mFilterCapabilityArr[6] && game.onlineCoop == "" ||
+                mFilterCapabilityArr[7] && game.fps120 == "" ||
+                mFilterCapabilityArr[8] && game.fpsBoost == "" ||
+                mFilterCapabilityArr[9] && game.discount.indexOf("무료") == -1)
+                return@forEach
+
+            filteredList.add(game)
+
+            filteredList.sortByDescending { it.releaseDate }
+        }
 
         transformViewModel.update(filteredList)
         (requireActivity() as MainActivity).setTitle("한국어 지원 타이틀: ${DecimalFormat("#,###").format(filteredList.size)}개")
