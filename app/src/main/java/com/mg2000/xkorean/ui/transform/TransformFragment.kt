@@ -1,6 +1,5 @@
 package com.mg2000.xkorean.ui.transform
 
-import android.app.ActionBar
 import android.app.SearchManager
 import android.content.Context
 import android.content.Intent
@@ -31,14 +30,13 @@ import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.SwitchCompat
 import androidx.core.view.MenuCompat
-import androidx.databinding.DataBindingUtil
+import androidx.lifecycle.MutableLiveData
 import androidx.preference.PreferenceManager
 import com.android.volley.toolbox.*
 import com.c.progress_dialog.BlackProgressDialog
 import com.mg2000.xkorean.IntentRepo
 import com.mg2000.xkorean.MainActivity
 import com.mg2000.xkorean.MainViewModel
-import com.mg2000.xkorean.databinding.SettingDialogBinding
 import org.joda.time.format.ISODateTimeFormat
 import java.io.*
 import java.text.DecimalFormat
@@ -67,6 +65,8 @@ class TransformFragment : Fragment() {
     private lateinit var mPlayAnywhereSeriesTitleHeader: Bitmap
     private lateinit var mWindowsTitleHeader: Bitmap
 
+    private var mEditionDialog: AlertDialog? = null
+
     private val mHandler = Handler(Looper.getMainLooper())
 
     private val mFilterDeviceArr = booleanArrayOf(false, false, false, false, false, false, false)
@@ -74,7 +74,6 @@ class TransformFragment : Fragment() {
     private val mFilterCategoryArr = booleanArrayOf(false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false)
     private var mFilterKorean = 0
     private var mSort = 0
-    private var mGameList = mutableListOf<Game>()
     private var mLanguage = "Korean"
     private var mShowNewTitle = true
     private var mSearchKeyword = ""
@@ -177,7 +176,7 @@ class TransformFragment : Fragment() {
         val recyclerView = binding.recyclerviewTransform
         val adapter = TransformAdapter()
         recyclerView.adapter = adapter
-        transformViewModel.games.observe(viewLifecycleOwner, {
+        transformViewModel.filteredGames.observe(viewLifecycleOwner, {
             adapter.submitList(it)
             adapter.notifyDataSetChanged()
 
@@ -199,13 +198,20 @@ class TransformFragment : Fragment() {
 //            //setMessage("한국어 지원 타이틀 확인중...")
 //            //setCancelable(false)
 //        }
-        downloadData()
+
+        if (transformViewModel.gameList == null)
+            downloadData()
 
         return root
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
+
+        if (mEditionDialog != null) {
+            mEditionDialog!!.dismiss()
+        }
+
         _binding = null
     }
 
@@ -388,7 +394,7 @@ class TransformFragment : Fragment() {
             }
         }
 
-        mGameList.forEach { game ->
+        transformViewModel.gameList?.forEach { game ->
             if (useDeviceFilter) {
                 if (!(mFilterDeviceArr[0] && game.seriesXS == "O" ||
                     mFilterDeviceArr[1] && game.oneXEnhanced == "O" ||
@@ -547,10 +553,11 @@ class TransformFragment : Fragment() {
         fun loadJSONArray(jsonList: JSONArray) {
             val gson = Gson()
 
-            mGameList.clear()
+            val gameList = mutableListOf<Game>()
             for (i in 0 until jsonList.length()) {
-                mGameList.add(gson.fromJson(jsonList.getString(i), Game::class.java))
+                gameList.add(gson.fromJson(jsonList.getString(i), Game::class.java))
             }
+            transformViewModel.gameList = gameList
 
             updateList()
         }
@@ -705,69 +712,87 @@ class TransformFragment : Fragment() {
             return 0
         }
 
-        override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
-            val vi = requireContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
-            val v = vi.inflate(R.layout.item_edition, null)
+        override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View? {
+            val context = context
 
-            val edition = editionList[position]
+            return if (context != null) {
+                val vi =
+                    requireContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
+                val v = vi.inflate(R.layout.item_edition, null)
 
-            val textViewItemEdition = v.findViewById<TextView>(R.id.text_view_item_edition)
-            textViewItemEdition.text = edition.name
+                val edition = editionList[position]
 
-            var gamePassTag = ""
-            if (edition.gamePassPC != "" || edition.gamePassConsole != "" || edition.gamePassCloud != "")
-                gamePassTag = "게임패스"
+                val textViewItemEdition = v.findViewById<TextView>(R.id.text_view_item_edition)
+                textViewItemEdition.text = edition.name
 
-            if (edition.gamePassNew == "O")
-                gamePassTag += " 신규"
-            else if (edition.gamePassEnd == "O")
-                gamePassTag += " 만기"
+                var gamePassTag = ""
+                if (edition.gamePassPC != "" || edition.gamePassConsole != "" || edition.gamePassCloud != "")
+                    gamePassTag = "게임패스"
 
-            val textViewEditionGamePassBack = v.findViewById<TextView>(R.id.text_view_edition_game_pass_back)
+                if (edition.gamePassNew == "O")
+                    gamePassTag += " 신규"
+                else if (edition.gamePassEnd == "O")
+                    gamePassTag += " 만기"
 
-            if (gamePassTag == "")
-                textViewEditionGamePassBack.visibility = View.INVISIBLE
-            else
-                textViewEditionGamePassBack.visibility = View.VISIBLE
+                val textViewEditionGamePassBack =
+                    v.findViewById<TextView>(R.id.text_view_edition_game_pass_back)
 
-            val textViewEditionGamePassPC = v.findViewById<TextView>(R.id.text_view_edition_game_pass_pc)
-            if (edition.gamePassPC != "")
-                textViewEditionGamePassPC.text = "피"
-            else
-                textViewEditionGamePassPC.text = ""
+                if (gamePassTag == "")
+                    textViewEditionGamePassBack.visibility = View.INVISIBLE
+                else
+                    textViewEditionGamePassBack.visibility = View.VISIBLE
 
-            val textViewEditionGamePassConsole = v.findViewById<TextView>(R.id.text_view_edition_game_pass_console)
-            if (edition.gamePassConsole != "")
-                textViewEditionGamePassConsole.text = "엑"
-            else
-                textViewEditionGamePassConsole.text = ""
+                val textViewEditionGamePassPC =
+                    v.findViewById<TextView>(R.id.text_view_edition_game_pass_pc)
+                if (edition.gamePassPC != "")
+                    textViewEditionGamePassPC.text = "피"
+                else
+                    textViewEditionGamePassPC.text = ""
 
-            val textViewEditionGamePassCloud = v.findViewById<TextView>(R.id.text_view_edition_game_pass_cloud)
-            if (edition.gamePassCloud != "")
-                textViewEditionGamePassCloud.text = "클"
-            else
-                textViewEditionGamePassCloud.text = ""
+                val textViewEditionGamePassConsole =
+                    v.findViewById<TextView>(R.id.text_view_edition_game_pass_console)
+                if (edition.gamePassConsole != "")
+                    textViewEditionGamePassConsole.text = "엑"
+                else
+                    textViewEditionGamePassConsole.text = ""
 
-            val textViewEditionMessage = v.findViewById<TextView>(R.id.text_view_edition_message)
-            if (edition.discountType != "") {
-                textViewEditionMessage.text = edition.discountType
-                textViewEditionMessage.visibility = View.VISIBLE
+                val textViewEditionGamePassCloud =
+                    v.findViewById<TextView>(R.id.text_view_edition_game_pass_cloud)
+                if (edition.gamePassCloud != "")
+                    textViewEditionGamePassCloud.text = "클"
+                else
+                    textViewEditionGamePassCloud.text = ""
+
+                val textViewEditionMessage =
+                    v.findViewById<TextView>(R.id.text_view_edition_message)
+                if (edition.discountType != "") {
+                    textViewEditionMessage.text = edition.discountType
+                    textViewEditionMessage.visibility = View.VISIBLE
+                } else
+                    textViewEditionMessage.visibility = View.INVISIBLE
+
+
+                val imageViewItemEdition = v.findViewById<ImageView>(R.id.image_view_item_edition)
+
+                getImage(
+                    edition.id,
+                    playAnywhere,
+                    edition.seriesXS,
+                    edition.oneS,
+                    edition.pc,
+                    edition.thumbnail
+                ) {
+                    imageViewItemEdition.setImageBitmap(it)
+                }
+
+                imageViewItemEdition.setOnClickListener {
+                    goToStore(languageCode, edition.id)
+                }
+
+                v
             }
             else
-                textViewEditionMessage.visibility = View.INVISIBLE
-
-
-            val imageViewItemEdition = v.findViewById<ImageView>(R.id.image_view_item_edition)
-
-            getImage(edition.id, playAnywhere, edition.seriesXS, edition.oneS, edition.pc, edition.thumbnail) {
-                imageViewItemEdition.setImageBitmap(it)
-            }
-
-            imageViewItemEdition.setOnClickListener {
-                goToStore(languageCode, edition.id)
-            }
-
-            return v
+                null
         }
 
     }
@@ -947,13 +972,15 @@ class TransformFragment : Fragment() {
                             val adapter = EditionAdapter(editionList, game.playAnywhere, getLanguageCodeFromUrl(game.storeLink))
                             editionGridView.adapter = adapter
 
-                            val dialog = AlertDialog.Builder(requireContext())
+                            mEditionDialog = AlertDialog.Builder(requireContext())
                                 .setTitle("에디션 선택")
                                 .setView(editionView)
-                                .setPositiveButton("닫기", null)
+                                .setPositiveButton("닫기") { _, _ ->
+                                    mEditionDialog!!.dismiss()
+                                }
                                 .create()
-                            dialog.show()
-                            dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                            mEditionDialog!!.show()
+                            mEditionDialog!!.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                         }
                         else
                             goToStore(getLanguageCodeFromUrl(game.storeLink), game.id)
