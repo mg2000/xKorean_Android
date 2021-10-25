@@ -182,7 +182,7 @@ class TransformFragment : Fragment() {
 
             mHandler.postDelayed({
                 recyclerView.scrollToPosition(0)
-            }, 200)
+            }, 500)
         })
 
         val dataFolder = requireContext().getDir("xKorean", Context.MODE_PRIVATE)
@@ -616,7 +616,6 @@ class TransformFragment : Fragment() {
                     preferenceManager.edit().putString("lastModifiedTime", updateInfo.getString("lastModifiedTime")).apply()
 
                     progressDialog.dismiss()
-                    println("성공")
                 }, {
                     val loadSuccess = loadCacheList()
                     progressDialog.dismiss()
@@ -741,6 +740,9 @@ class TransformFragment : Fragment() {
                     textViewEditionGamePassBack.visibility = View.INVISIBLE
                 else
                     textViewEditionGamePassBack.visibility = View.VISIBLE
+
+                val textViewEditionGamePass = v.findViewById<TextView>(R.id.text_view_edition_game_pass)
+                textViewEditionGamePass.text = gamePassTag
 
                 val textViewEditionGamePassPC =
                     v.findViewById<TextView>(R.id.text_view_edition_game_pass_pc)
@@ -870,18 +872,55 @@ class TransformFragment : Fragment() {
 
             if (game.gamePassPC != "")
                 holder.gamePassPCTextView.text = "피"
-            else
-                holder.gamePassPCTextView.text = ""
+            else {
+                var support = false
+                for (bundle in game.bundle) {
+                    if (bundle.gamePassPC == "O")
+                    {
+                        holder.gamePassPCTextView.text = "피"
+                        support = true
+                        break
+                    }
+                }
+
+                if (!support)
+                    holder.gamePassPCTextView.text = ""
+            }
+
 
             if (game.gamePassConsole != "")
                 holder.gamePassConsoleTextView.text = "엑"
-            else
-                holder.gamePassConsoleTextView.text = ""
+            else {
+                var support = false
+                for (bundle in game.bundle) {
+                    if (bundle.gamePassConsole == "O")
+                    {
+                        holder.gamePassConsoleTextView.text = "엑"
+                        support = true
+                        break
+                    }
+                }
+
+                if (!support)
+                    holder.gamePassConsoleTextView.text = ""
+            }
 
             if (game.gamePassCloud != "")
                 holder.gamePassCloudTextView.text = "클"
-            else
-                holder.gamePassCloudTextView.text = ""
+            else {
+                var support = false
+                for (bundle in game.bundle) {
+                    if (bundle.gamePassCloud == "O")
+                    {
+                        holder.gamePassCloudTextView.text = "클"
+                        support = true
+                        break
+                    }
+                }
+
+                if (!support)
+                    holder.gamePassCloudTextView.text = ""
+            }
 
             var discount = game.discount
 
