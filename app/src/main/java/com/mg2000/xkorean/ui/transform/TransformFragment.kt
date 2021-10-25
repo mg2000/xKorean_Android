@@ -78,6 +78,8 @@ class TransformFragment : Fragment() {
     private var mShowNewTitle = true
     private var mSearchKeyword = ""
 
+    private val mNewTitleList = mutableListOf<String>()
+
     private val mMessageTemplateMap = mapOf("dlregiononly" to "다음 지역의 스토어에서 다운로드 받아야 한국어가 지원됩니다: [name]",
         "packageonly" to "패키지 버전만 한국어를 지원합니다.",
         "usermode" to "이 게임은 유저 모드를 설치하셔야 한국어가 지원됩니다.",
@@ -547,6 +549,27 @@ class TransformFragment : Fragment() {
 
         transformViewModel.update(filteredList)
         (requireActivity() as MainActivity).setTitle("한국어 지원 타이틀: ${DecimalFormat("#,###").format(filteredList.size)}개")
+
+        if (mNewTitleList.isNotEmpty()) {
+            val newTitleBuilder = StringBuilder()
+            mNewTitleList.forEach {
+                newTitleBuilder.append(it).append("\n")
+            }
+            mNewTitleList.clear()
+
+            AlertDialog.Builder(requireContext())
+                .setTitle("새로 확인된 타이틀")
+                .setMessage(newTitleBuilder.toString().trim())
+                .setNeutralButton("앞으로 표시하지 않음") { _, _ ->
+                    mShowNewTitle = false
+                    val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
+                    preferenceManager.edit()
+                        .putBoolean("showNewTitle", mShowNewTitle)
+                        .apply()
+                }
+                .setPositiveButton("확인", null)
+                .create().show()
+        }
     }
 
     private fun downloadData() {
@@ -604,10 +627,33 @@ class TransformFragment : Fragment() {
                     val str = outputStream.toString("utf-8")
                     outputStream.close()
 
-                    val newDataFile = File(dataFolder, "games.json")
-                    newDataFile.writeText(str)
+                    val dataFile = File(dataFolder, "games.json")
 
                     val jsonList = JSONArray(str)
+
+                    mNewTitleList.clear()
+                    if (mShowNewTitle) {
+                        val oldDataList = JSONArray(dataFile.readText())
+                        for (i in 0 until jsonList.length()) {
+                            var oldTitle = false
+                            for (j in 0 until oldDataList.length()) {
+                                if (jsonList.getJSONObject(i).getString("id") == oldDataList.getJSONObject(j).getString("id")) {
+                                    oldDataList.remove(j)
+                                    oldTitle = true
+                                    break
+                                }
+                            }
+
+                            if (!oldTitle) {
+                                if (mLanguage == "Korean")
+                                    mNewTitleList.add(jsonList.getJSONObject(i).getString("koreanName"))
+                                else
+                                    mNewTitleList.add(jsonList.getJSONObject(i).getString("name"))
+                            }
+                        }
+                    }
+
+                    dataFile.writeText(str)
 
                     loadJSONArray(jsonList)
 
@@ -979,7 +1025,7 @@ class TransformFragment : Fragment() {
                     if (game.bundle.isEmpty())
                         goToStore(getLanguageCodeFromUrl(game.storeLink), game.id)
                     else {
-                        if (game.isAvailable() || game.bundle.isNotEmpty()) {
+                        if (game.isAvailable() || game.bundle.size > 1) {
                             val inflater = requireContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
                             val editionView = inflater.inflate(R.layout.edition_dialog, null)
 
@@ -1022,7 +1068,7 @@ class TransformFragment : Fragment() {
                             mEditionDialog!!.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                         }
                         else
-                            goToStore(getLanguageCodeFromUrl(game.storeLink), game.id)
+                            goToStore(getLanguageCodeFromUrl(game.storeLink), game.bundle[0].id)
                     }
                 }
 

@@ -1,5 +1,6 @@
 package com.mg2000.xkorean
 
+import android.app.SearchManager
 import android.content.Intent
 import android.os.Bundle
 import android.view.Menu
@@ -89,7 +90,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        mainViewModel.intent.set(intent!!)
+
+        if (intent?.getStringExtra(SearchManager.QUERY) != null)
+            mainViewModel.intent.set(intent)
     }
 
     override fun onSupportNavigateUp(): Boolean {
