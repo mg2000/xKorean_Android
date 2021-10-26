@@ -29,6 +29,7 @@ import android.view.*
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.SwitchCompat
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.MenuCompat
 import androidx.lifecycle.MutableLiveData
 import androidx.preference.PreferenceManager
@@ -40,6 +41,7 @@ import com.mg2000.xkorean.MainViewModel
 import org.joda.time.format.ISODateTimeFormat
 import java.io.*
 import java.text.DecimalFormat
+import kotlin.math.floor
 
 /**
  * Fragment that demonstrates a responsive layout pattern where the format of the content
@@ -170,8 +172,11 @@ class TransformFragment : Fragment() {
                 return dp * logicalDensity
             }
 
-            val columnWidth = 190
-            val spanCount = Math.floor(root.getWidth() / convertDPToPixels(columnWidth).toDouble()).toInt()
+            val columnWidth = 160
+
+            println("화면 너비 ${root.getWidth()} ${convertDPToPixels(columnWidth)}")
+
+            val spanCount = floor(root.getWidth() / convertDPToPixels(columnWidth).toDouble()).toInt()
             ((root as RecyclerView).getLayoutManager() as GridLayoutManager).spanCount = spanCount
         }
 
@@ -632,7 +637,7 @@ class TransformFragment : Fragment() {
                     val jsonList = JSONArray(str)
 
                     mNewTitleList.clear()
-                    if (mShowNewTitle) {
+                    if (mShowNewTitle && dataFile.exists()) {
                         val oldDataList = JSONArray(dataFile.readText())
                         for (i in 0 until jsonList.length()) {
                             var oldTitle = false
@@ -864,6 +869,7 @@ class TransformFragment : Fragment() {
 
         override fun onBindViewHolder(holder: TransformViewHolder, position: Int) {
             val game = getItem(position)
+
             holder.textView.text = if (mLanguage == "Korean")
                 game.koreanName
             else
@@ -1145,7 +1151,7 @@ class TransformFragment : Fragment() {
     }
 
     fun goToStore(languageCode: String, id: String) {
-        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.microsoft.com/$languageCode/p/xkorean/$id")))
+        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.xbox.com/$languageCode/games/store/xkorean/$id")))
     }
 
     class TransformViewHolder(binding: ItemTransformBinding) :
