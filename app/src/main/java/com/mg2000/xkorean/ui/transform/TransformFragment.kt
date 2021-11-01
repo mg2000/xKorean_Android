@@ -105,7 +105,7 @@ class TransformFragment : Fragment() {
 
         mainViewModel = ViewModelProvider(requireActivity(), MainViewModel.Factory(IntentRepo())).get(MainViewModel::class.java)
         mainViewModel.intent.get.observe(viewLifecycleOwner, {
-            mSearchKeyword = it.getStringExtra(SearchManager.QUERY)!!
+            mSearchKeyword = it
             updateList()
         })
 

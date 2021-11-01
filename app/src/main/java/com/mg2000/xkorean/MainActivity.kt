@@ -28,9 +28,9 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         mainViewModel = ViewModelProvider(this, MainViewModel.Factory(IntentRepo())).get(MainViewModel::class.java)
+        mainViewModel.intent.set("")
         setContentView(binding.root)
         setSupportActionBar(binding.appBarMain.toolbar)
-
 
 
 //        binding.appBarMain.fab?.setOnClickListener { view ->
@@ -92,7 +92,7 @@ class MainActivity : AppCompatActivity() {
         super.onNewIntent(intent)
 
         if (intent?.getStringExtra(SearchManager.QUERY) != null)
-            mainViewModel.intent.set(intent)
+            mainViewModel.intent.set(intent.getStringExtra(SearchManager.QUERY)!!)
     }
 
     override fun onSupportNavigateUp(): Boolean {

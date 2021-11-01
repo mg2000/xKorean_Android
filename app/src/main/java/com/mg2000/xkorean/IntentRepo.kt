@@ -6,9 +6,9 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.Transformations
 
 class IntentRepo {
-    private val _intent = MutableLiveData<Intent>()
+    private val _intent = MutableLiveData<String>()
 
-    val get: LiveData<Intent> = Transformations.map(_intent) { it!! }
+    val get: LiveData<String> = Transformations.map(_intent) { it!! }
 
-    fun set(intent: Intent) { _intent.value = intent }
+    fun set(keyword: String) { _intent.value = keyword }
 }
