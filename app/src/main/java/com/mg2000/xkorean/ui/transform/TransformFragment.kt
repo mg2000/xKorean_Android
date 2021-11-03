@@ -38,6 +38,7 @@ import com.c.progress_dialog.BlackProgressDialog
 import com.mg2000.xkorean.IntentRepo
 import com.mg2000.xkorean.MainActivity
 import com.mg2000.xkorean.MainViewModel
+import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
 import org.json.JSONObject
 import java.io.*
@@ -1173,7 +1174,10 @@ class TransformFragment : Fragment() {
         val parser = ISODateTimeFormat.dateTime()
         val releaseTime = parser.parseDateTime(releaseDate)
 
-        return releaseTime.toString("MM월 dd일 HH시 출시")
+        return if (releaseTime.isAfterNow)
+            releaseTime.toString("M월 d일 H시 출시")
+        else
+            ""
     }
 
     fun goToStore(languageCode: String, id: String) {
