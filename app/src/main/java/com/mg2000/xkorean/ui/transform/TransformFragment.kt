@@ -821,7 +821,11 @@ class TransformFragment : Fragment() {
                 val textViewEditionMessage =
                     v.findViewById<TextView>(R.id.text_view_edition_message)
                 if (edition.discountType != "") {
-                    textViewEditionMessage.text = edition.discountType
+                    var discount = edition.discountType
+                    if (discount == "곧 출시")
+                        discount = getReleaseTime(edition.releaseDate)
+
+                    textViewEditionMessage.text = discount
                     textViewEditionMessage.visibility = View.VISIBLE
                 } else
                     textViewEditionMessage.visibility = View.INVISIBLE
