@@ -1185,7 +1185,7 @@ class TransformFragment : Fragment() {
     }
 
     fun goToStore(languageCode: String, id: String) {
-        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.xbox.com/$languageCode/games/store/xkorean/$id")))
+        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.microsoft.com/$languageCode/p/xkorean/$id")))
     }
 
     class TransformViewHolder(binding: ItemTransformBinding) :
