@@ -37,5 +37,26 @@
         android:layout_height="wrap_content"
         android:text="시작시 새로 확인된 타이틀 표시" />
 
+    <Space
+        android:layout_width="match_parent"
+        android:layout_height="10dp" />
+
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/switch_show_discount"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="할인 정보 표시" />
+
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/switch_show_gamepass"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="게임패스 정보 표시" />
+
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/switch_show_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="게임제목/한국어 정보 표시" />
 
 </LinearLayout>

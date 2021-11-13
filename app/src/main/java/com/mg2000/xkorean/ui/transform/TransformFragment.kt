@@ -82,6 +82,11 @@ class TransformFragment : Fragment() {
     private var mShowNewTitle = true
     private var mSearchKeyword = ""
 
+    private var mShowRecommendTag = false
+    private var mShowDiscount = true
+    private var mShowGamepass = true
+    private var mShowName = true
+
     private val mNewTitleList = mutableListOf<String>()
 
     private val mMessageTemplateMap = mapOf("dlregiononly" to "다음 지역의 스토어에서 다운로드 받아야 한국어가 지원됩니다: [name]",
@@ -120,6 +125,9 @@ class TransformFragment : Fragment() {
         mSort = preferenceManager.getInt("sort", 0)
         mLanguage = preferenceManager.getString("language", "Korean")!!
         mShowNewTitle = preferenceManager.getBoolean("showNewTitle", true)
+        mShowDiscount = preferenceManager.getBoolean("showDiscount", true)
+        mShowGamepass = preferenceManager.getBoolean("showGamepass", true)
+        mShowName = preferenceManager.getBoolean("showName", true)
 
         var inputStream = requireContext().assets.open("xbox_one_title.png")
         var size = inputStream.available()
@@ -176,10 +184,10 @@ class TransformFragment : Fragment() {
 
             val columnWidth = 160
 
-            println("화면 너비 ${root.getWidth()} ${convertDPToPixels(columnWidth)}")
+            println("화면 너비 ${root.width} ${convertDPToPixels(columnWidth)}")
 
-            val spanCount = floor(root.getWidth() / convertDPToPixels(columnWidth).toDouble()).toInt()
-            ((root as RecyclerView).getLayoutManager() as GridLayoutManager).spanCount = spanCount
+            val spanCount = floor(root.width / convertDPToPixels(columnWidth).toDouble()).toInt()
+            ((root as RecyclerView).layoutManager as GridLayoutManager).spanCount = spanCount
         }
 
         val recyclerView = binding.recyclerviewTransform
@@ -333,6 +341,15 @@ class TransformFragment : Fragment() {
                 val switchNewTitle = settingView.findViewById<SwitchCompat>(R.id.switch_show_new_title)
                 switchNewTitle.isChecked = mShowNewTitle
 
+                val switchShowDiscount = settingView.findViewById<SwitchCompat>(R.id.switch_show_discount)
+                switchShowDiscount.isChecked = mShowDiscount
+
+                val switchShowGamepass = settingView.findViewById<SwitchCompat>(R.id.switch_show_gamepass)
+                switchShowGamepass.isChecked = mShowGamepass
+
+                val switchShowName = settingView.findViewById<SwitchCompat>(R.id.switch_show_name)
+                switchShowName.isChecked = mShowName
+
                 val settingDialog = AlertDialog.Builder(requireContext())
                     .setTitle("설정")
                     .setView(settingView)
@@ -346,13 +363,24 @@ class TransformFragment : Fragment() {
 
                         mShowNewTitle = switchNewTitle.isChecked
 
+                        val prevShowDiscount = mShowDiscount
+                        val prevShowGamepass = mShowGamepass
+                        val prevShowName = mShowName
+
+                        mShowDiscount = switchShowDiscount.isChecked
+                        mShowGamepass = switchShowGamepass.isChecked
+                        mShowName = switchShowName.isChecked
+
                         val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
                         preferenceManager.edit()
                             .putString("language", mLanguage)
                             .putBoolean("showNewTitle", mShowNewTitle)
+                            .putBoolean("showDiscount", mShowDiscount)
+                            .putBoolean("showGamepass", mShowGamepass)
+                            .putBoolean("showName", mShowName)
                             .apply()
 
-                        if (prevLanguage != mLanguage)
+                        if (prevLanguage != mLanguage || prevShowDiscount != mShowDiscount || prevShowGamepass != mShowGamepass || prevShowName != mShowName)
                             updateList()
                     }
                     .create()
@@ -768,14 +796,19 @@ class TransformFragment : Fragment() {
             val context = context
 
             return if (context != null) {
-                val vi =
-                    requireContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
+                val vi = requireContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
                 val v = vi.inflate(R.layout.item_edition, null)
 
                 val edition = editionList[position]
 
                 val textViewItemEdition = v.findViewById<TextView>(R.id.text_view_item_edition)
-                textViewItemEdition.text = edition.name
+
+                if (mShowName) {
+                    textViewItemEdition.text = edition.name
+                    textViewItemEdition.visibility = View.VISIBLE
+                }
+                else
+                    textViewItemEdition.visibility = View.INVISIBLE
 
                 var gamePassTag = ""
                 if (edition.gamePassPC != "" || edition.gamePassConsole != "" || edition.gamePassCloud != "")
@@ -786,41 +819,46 @@ class TransformFragment : Fragment() {
                 else if (edition.gamePassEnd == "O")
                     gamePassTag += " 만기"
 
-                val textViewEditionGamePassBack =
-                    v.findViewById<TextView>(R.id.text_view_edition_game_pass_back)
+                val textViewEditionGamePassBack = v.findViewById<TextView>(R.id.text_view_edition_game_pass_back)
+                val textViewEditionGamePass = v.findViewById<TextView>(R.id.text_view_edition_game_pass)
+                val textViewEditionGamePassPC = v.findViewById<TextView>(R.id.text_view_edition_game_pass_pc)
+                val textViewEditionGamePassConsole = v.findViewById<TextView>(R.id.text_view_edition_game_pass_console)
+                val textViewEditionGamePassCloud = v.findViewById<TextView>(R.id.text_view_edition_game_pass_cloud)
 
-                if (gamePassTag == "")
+                if (gamePassTag == "" || !mShowGamepass) {
                     textViewEditionGamePassBack.visibility = View.INVISIBLE
-                else
+                    textViewEditionGamePass.visibility = View.INVISIBLE
+                    textViewEditionGamePassPC.visibility = View.INVISIBLE
+                    textViewEditionGamePassConsole.visibility = View.INVISIBLE
+                    textViewEditionGamePassCloud.visibility = View.INVISIBLE
+                }
+                else {
                     textViewEditionGamePassBack.visibility = View.VISIBLE
 
-                val textViewEditionGamePass = v.findViewById<TextView>(R.id.text_view_edition_game_pass)
-                textViewEditionGamePass.text = gamePassTag
+                    textViewEditionGamePass.text = gamePassTag
+                    textViewEditionGamePass.visibility = View.VISIBLE
 
-                val textViewEditionGamePassPC =
-                    v.findViewById<TextView>(R.id.text_view_edition_game_pass_pc)
-                if (edition.gamePassPC != "")
-                    textViewEditionGamePassPC.text = "피"
-                else
-                    textViewEditionGamePassPC.text = ""
+                    if (edition.gamePassPC != "")
+                        textViewEditionGamePassPC.text = "피"
+                    else
+                        textViewEditionGamePassPC.text = ""
+                    textViewEditionGamePassPC.visibility = View.VISIBLE
 
-                val textViewEditionGamePassConsole =
-                    v.findViewById<TextView>(R.id.text_view_edition_game_pass_console)
-                if (edition.gamePassConsole != "")
-                    textViewEditionGamePassConsole.text = "엑"
-                else
-                    textViewEditionGamePassConsole.text = ""
+                    if (edition.gamePassConsole != "")
+                        textViewEditionGamePassConsole.text = "엑"
+                    else
+                        textViewEditionGamePassConsole.text = ""
+                    textViewEditionGamePassConsole.visibility = View.VISIBLE
 
-                val textViewEditionGamePassCloud =
-                    v.findViewById<TextView>(R.id.text_view_edition_game_pass_cloud)
-                if (edition.gamePassCloud != "")
-                    textViewEditionGamePassCloud.text = "클"
-                else
-                    textViewEditionGamePassCloud.text = ""
+                    if (edition.gamePassCloud != "")
+                        textViewEditionGamePassCloud.text = "클"
+                    else
+                        textViewEditionGamePassCloud.text = ""
+                    textViewEditionGamePassCloud.visibility = View.VISIBLE
+                }
 
-                val textViewEditionMessage =
-                    v.findViewById<TextView>(R.id.text_view_edition_message)
-                if (edition.discountType != "") {
+                val textViewEditionMessage = v.findViewById<TextView>(R.id.text_view_edition_message)
+                if (edition.discountType != "" && mShowDiscount) {
                     var discount = edition.discountType
                     if (discount == "곧 출시")
                         discount = getReleaseTime(edition.releaseDate)
@@ -869,18 +907,27 @@ class TransformFragment : Fragment() {
         override fun onBindViewHolder(holder: TransformViewHolder, position: Int) {
             val game = getItem(position)
 
-            holder.textView.text = if (mLanguage == "Korean")
-                game.koreanName
-            else
-                game.name
+            if (mShowName) {
+                holder.textView.text = if (mLanguage == "Korean")
+                    game.koreanName
+                else
+                    game.name
+                holder.textView.visibility = View.VISIBLE
 
-            val localize = game.localize.replace("/", "\n")
-            holder.localizeTextView.text = localize
+                val localize = game.localize.replace("/", "\n")
+                holder.localizeTextView.text = localize
 
-            when {
-                localize.indexOf("음성") >= 0 -> holder.localizeTextView.setBackgroundColor(Color.argb(0xCC, 0x44, 0x85, 0x0E))
-                localize.indexOf("자막") >= 0 -> holder.localizeTextView.setBackgroundColor(Color.argb(0xCC, 0xA6, 0x88, 0x19))
-                else -> holder.localizeTextView.setBackgroundColor(Color.argb(0xCC, 0x95, 0x0D, 0x00))
+                when {
+                    localize.indexOf("음성") >= 0 -> holder.localizeTextView.setBackgroundColor(Color.argb(0xCC, 0x44, 0x85, 0x0E))
+                    localize.indexOf("자막") >= 0 -> holder.localizeTextView.setBackgroundColor(Color.argb(0xCC, 0xA6, 0x88, 0x19))
+                    else -> holder.localizeTextView.setBackgroundColor(Color.argb(0xCC, 0x95, 0x0D, 0x00))
+                }
+
+                holder.localizeTextView.visibility = View.VISIBLE
+            }
+            else {
+                holder.textView.visibility = View.INVISIBLE
+                holder.localizeTextView.visibility = View.INVISIBLE
             }
 
             var gamePassTag = ""
@@ -915,62 +962,69 @@ class TransformFragment : Fragment() {
                 }
             }
 
-            holder.gamePassTextView.text = gamePassTag
-            if (gamePassTag == "")
+
+            if (gamePassTag == "" || !mShowGamepass) {
+                holder.gamePassTextView.visibility = View.INVISIBLE
                 holder.gamePassBackTextView.visibility = View.INVISIBLE
-            else
+                holder.gamePassPCTextView.visibility = View.INVISIBLE
+                holder.gamePassConsoleTextView.visibility = View.INVISIBLE
+                holder.gamePassCloudTextView.visibility = View.INVISIBLE
+            }
+            else {
+                holder.gamePassTextView.text = gamePassTag
+                holder.gamePassTextView.visibility = View.VISIBLE
                 holder.gamePassBackTextView.visibility = View.VISIBLE
 
-            if (game.gamePassPC != "")
-                holder.gamePassPCTextView.text = "피"
-            else {
-                var support = false
-                for (bundle in game.bundle) {
-                    if (bundle.gamePassPC == "O")
-                    {
-                        holder.gamePassPCTextView.text = "피"
-                        support = true
-                        break
+                if (game.gamePassPC != "")
+                    holder.gamePassPCTextView.text = "피"
+                else {
+                    var support = false
+                    for (bundle in game.bundle) {
+                        if (bundle.gamePassPC == "O") {
+                            holder.gamePassPCTextView.text = "피"
+                            support = true
+                            break
+                        }
                     }
+
+                    if (!support)
+                        holder.gamePassPCTextView.text = ""
                 }
+                holder.gamePassPCTextView.visibility = View.VISIBLE
 
-                if (!support)
-                    holder.gamePassPCTextView.text = ""
-            }
-
-
-            if (game.gamePassConsole != "")
-                holder.gamePassConsoleTextView.text = "엑"
-            else {
-                var support = false
-                for (bundle in game.bundle) {
-                    if (bundle.gamePassConsole == "O")
-                    {
-                        holder.gamePassConsoleTextView.text = "엑"
-                        support = true
-                        break
+                if (game.gamePassConsole != "")
+                    holder.gamePassConsoleTextView.text = "엑"
+                else {
+                    var support = false
+                    for (bundle in game.bundle) {
+                        if (bundle.gamePassConsole == "O") {
+                            holder.gamePassConsoleTextView.text = "엑"
+                            support = true
+                            break
+                        }
                     }
+
+                    if (!support)
+                        holder.gamePassConsoleTextView.text = ""
                 }
+                holder.gamePassConsoleTextView.visibility = View.VISIBLE
 
-                if (!support)
-                    holder.gamePassConsoleTextView.text = ""
-            }
-
-            if (game.gamePassCloud != "")
-                holder.gamePassCloudTextView.text = "클"
-            else {
-                var support = false
-                for (bundle in game.bundle) {
-                    if (bundle.gamePassCloud == "O")
-                    {
-                        holder.gamePassCloudTextView.text = "클"
-                        support = true
-                        break
+                if (game.gamePassCloud != "")
+                    holder.gamePassCloudTextView.text = "클"
+                else {
+                    var support = false
+                    for (bundle in game.bundle) {
+                        if (bundle.gamePassCloud == "O") {
+                            holder.gamePassCloudTextView.text = "클"
+                            support = true
+                            break
+                        }
                     }
-                }
 
-                if (!support)
-                    holder.gamePassCloudTextView.text = ""
+                    if (!support)
+                        holder.gamePassCloudTextView.text = ""
+                }
+                holder.gamePassCloudTextView.visibility = View.VISIBLE
             }
 
             var discount = game.discount
@@ -997,7 +1051,7 @@ class TransformFragment : Fragment() {
             if (discount == "곧 출시")
                 discount = getReleaseTime(game.releaseDate)
 
-            if (discount != "") {
+            if (discount != "" && mShowDiscount) {
                 holder.messageTextView.text = discount
                 holder.messageTextView.visibility = View.VISIBLE
             }
