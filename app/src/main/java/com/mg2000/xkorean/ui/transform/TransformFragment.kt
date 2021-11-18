@@ -620,55 +620,72 @@ class TransformFragment : Fragment() {
             val lastModifiedTime = preferenceManager.getString("lastModifiedTime", "")
             if (lastModifiedTime == "" || lastModifiedTime != updateInfo.getString("lastModifiedTime")) {
                 val request = BinaryArrayRequest("https://xbox-korean-viewer-server2.herokuapp.com/title_list_zip", {
-                    val gzipInputStream = GZIPInputStream(ByteArrayInputStream(it))
-                    val outputStream = ByteArrayOutputStream()
+                    try {
+                        val gzipInputStream = GZIPInputStream(ByteArrayInputStream(it))
+                        val outputStream = ByteArrayOutputStream()
 
-                    val dataBuffer = ByteArray(32768)
-                    var len = gzipInputStream.read(dataBuffer)
-                    while (len > 0) {
-                        outputStream.write(dataBuffer, 0, len)
-                        len = gzipInputStream.read(dataBuffer)
-                    }
-                    gzipInputStream.close()
+                        val dataBuffer = ByteArray(32768)
+                        var len = gzipInputStream.read(dataBuffer)
+                        while (len > 0) {
+                            outputStream.write(dataBuffer, 0, len)
+                            len = gzipInputStream.read(dataBuffer)
+                        }
+                        gzipInputStream.close()
 
-                    val str = outputStream.toString("utf-8")
-                    outputStream.close()
+                        val str = outputStream.toString("utf-8")
+                        outputStream.close()
 
-                    val dataFile = File(dataFolder, "games.json")
+                        val dataFile = File(dataFolder, "games.json")
 
-                    val jsonList = JSONArray(str)
+                        val jsonList = JSONArray(str)
 
-                    mNewTitleList.clear()
-                    if (mShowNewTitle && dataFile.exists()) {
-                        val oldDataList = JSONArray(dataFile.readText())
-                        for (i in 0 until jsonList.length()) {
-                            var oldTitle = false
-                            for (j in 0 until oldDataList.length()) {
-                                if (jsonList.getJSONObject(i).getString("id") == oldDataList.getJSONObject(j).getString("id")) {
-                                    oldDataList.remove(j)
-                                    oldTitle = true
-                                    break
+                        mNewTitleList.clear()
+                        if (mShowNewTitle && dataFile.exists()) {
+                            val oldDataList = JSONArray(dataFile.readText())
+                            for (i in 0 until jsonList.length()) {
+                                var oldTitle = false
+                                for (j in 0 until oldDataList.length()) {
+                                    if (jsonList.getJSONObject(i)
+                                            .getString("id") == oldDataList.getJSONObject(j)
+                                            .getString("id")
+                                    ) {
+                                        oldDataList.remove(j)
+                                        oldTitle = true
+                                        break
+                                    }
+                                }
+
+                                if (!oldTitle) {
+                                    if (mLanguage == "Korean")
+                                        mNewTitleList.add(
+                                            jsonList.getJSONObject(i).getString("koreanName")
+                                        )
+                                    else
+                                        mNewTitleList.add(
+                                            jsonList.getJSONObject(i).getString("name")
+                                        )
                                 }
                             }
-
-                            if (!oldTitle) {
-                                if (mLanguage == "Korean")
-                                    mNewTitleList.add(jsonList.getJSONObject(i).getString("koreanName"))
-                                else
-                                    mNewTitleList.add(jsonList.getJSONObject(i).getString("name"))
-                            }
                         }
-                    }
 
-                    dataFile.writeText(str)
+                        dataFile.writeText(str)
 
-                    loadJSONArray(jsonList)
+                        loadJSONArray(jsonList)
 
 //            adapter.updateData(gameList)
 //            adapter.notifyDataSetChanged()
-                    preferenceManager.edit().putString("lastModifiedTime", updateInfo.getString("lastModifiedTime")).apply()
+                        preferenceManager.edit()
+                            .putString("lastModifiedTime", updateInfo.getString("lastModifiedTime"))
+                            .apply()
 
-                    progressDialog.dismiss()
+
+                    }
+                    catch (e: EOFException) {
+                        Toast.makeText(requireContext(), "서버에서 데이터를 가져올 수 없습니다. 잠시 후 다시 시도해 주세요.", Toast.LENGTH_SHORT).show()
+                    }
+                    finally {
+                        progressDialog.dismiss()
+                    }
                 }, {
                     val loadSuccess = loadCacheList()
                     progressDialog.dismiss()
