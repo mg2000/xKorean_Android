@@ -250,6 +250,11 @@ class TransformFragment : Fragment() {
 
         MenuCompat.setGroupDividerEnabled(menu, true)
 
+        if (mFilterDeviceArr.any { it })
+            (menu.findItem(R.id.filter_device)).title = "기종 [적용]"
+        else
+            (menu.findItem(R.id.filter_device)).title = "기종"
+
         return result
     }
 
@@ -265,11 +270,19 @@ class TransformFragment : Fragment() {
                     .setPositiveButton("확인") { dialog, which ->
                         val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
                         val newFilterDevice = JSONArray()
+                        var mUseFilter = false
                         mFilterDeviceArr.forEach {
                             newFilterDevice.put(it)
+                            if (it && !mUseFilter)
+                                mUseFilter = true
                         }
                         preferenceManager.edit().putString("filterDevice", newFilterDevice.toString()).apply()
                         updateList()
+
+                        if (mUseFilter)
+                            item.title = "기종 [적용]"
+                        else
+                            item.title = "기종"
                     }
                     .show()
             }
@@ -282,6 +295,11 @@ class TransformFragment : Fragment() {
                     }
                     .setPositiveButton("확인") { dialog, which ->
                         updateList()
+
+                        if (mFilterCapabilityArr.any { it })
+                            item.title = "특성 [적용]"
+                        else
+                            item.title = "특성"
                     }
                     .show()
             }
@@ -294,6 +312,11 @@ class TransformFragment : Fragment() {
                     }
                     .setPositiveButton("확인") { dialog, which ->
                         updateList()
+
+                        if (mFilterCategoryArr.any { it })
+                            item.title = "장르 [적용]"
+                        else
+                            item.title = "장르"
                     }
                     .show()
             }
