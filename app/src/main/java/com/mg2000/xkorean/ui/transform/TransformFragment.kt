@@ -903,8 +903,12 @@ class TransformFragment : Fragment() {
                     if (discount == "곧 출시")
                         discount = getReleaseTime(edition.releaseDate)
 
-                    textViewEditionMessage.text = discount
-                    textViewEditionMessage.visibility = View.VISIBLE
+                    if (discount != "") {
+                        textViewEditionMessage.text = discount
+                        textViewEditionMessage.visibility = View.VISIBLE
+                    }
+                    else
+                        textViewEditionMessage.visibility = View.INVISIBLE
                 } else
                     textViewEditionMessage.visibility = View.INVISIBLE
 
