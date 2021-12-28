@@ -59,4 +59,10 @@
         android:layout_height="wrap_content"
         android:text="게임제목/한국어 정보 표시" />
 
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/switch_release_time"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="출시일을 시간으로 표시" />
+
 </LinearLayout>

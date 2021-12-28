@@ -86,6 +86,7 @@ class TransformFragment : Fragment() {
     private var mShowDiscount = true
     private var mShowGamepass = true
     private var mShowName = true
+    private var mShowReleaseTime = false
 
     private val mNewTitleList = mutableListOf<String>()
 
@@ -128,6 +129,7 @@ class TransformFragment : Fragment() {
         mShowDiscount = preferenceManager.getBoolean("showDiscount", true)
         mShowGamepass = preferenceManager.getBoolean("showGamepass", true)
         mShowName = preferenceManager.getBoolean("showName", true)
+        mShowReleaseTime = preferenceManager.getBoolean("showReleaseTime", false)
 
         var inputStream = requireContext().assets.open("xbox_one_title.png")
         var size = inputStream.available()
@@ -373,6 +375,9 @@ class TransformFragment : Fragment() {
                 val switchShowName = settingView.findViewById<SwitchCompat>(R.id.switch_show_name)
                 switchShowName.isChecked = mShowName
 
+                val switchShowReleaseTime = settingView.findViewById<SwitchCompat>(R.id.switch_release_time)
+                switchShowReleaseTime.isChecked = mShowReleaseTime
+
                 val settingDialog = AlertDialog.Builder(requireContext())
                     .setTitle("설정")
                     .setView(settingView)
@@ -389,10 +394,12 @@ class TransformFragment : Fragment() {
                         val prevShowDiscount = mShowDiscount
                         val prevShowGamepass = mShowGamepass
                         val prevShowName = mShowName
+                        val prevShowReleaseTime = mShowReleaseTime
 
                         mShowDiscount = switchShowDiscount.isChecked
                         mShowGamepass = switchShowGamepass.isChecked
                         mShowName = switchShowName.isChecked
+                        mShowReleaseTime = switchShowReleaseTime.isChecked
 
                         val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
                         preferenceManager.edit()
@@ -401,9 +408,10 @@ class TransformFragment : Fragment() {
                             .putBoolean("showDiscount", mShowDiscount)
                             .putBoolean("showGamepass", mShowGamepass)
                             .putBoolean("showName", mShowName)
+                            .putBoolean("showReleaseTime", mShowReleaseTime)
                             .apply()
 
-                        if (prevLanguage != mLanguage || prevShowDiscount != mShowDiscount || prevShowGamepass != mShowGamepass || prevShowName != mShowName)
+                        if (prevLanguage != mLanguage || prevShowDiscount != mShowDiscount || prevShowGamepass != mShowGamepass || prevShowName != mShowName || prevShowReleaseTime != mShowReleaseTime)
                             updateList()
                     }
                     .create()
@@ -900,7 +908,7 @@ class TransformFragment : Fragment() {
                 val textViewEditionMessage = v.findViewById<TextView>(R.id.text_view_edition_message)
                 if (edition.discountType != "" && mShowDiscount) {
                     var discount = edition.discountType
-                    if (discount == "곧 출시")
+                    if (discount == "곧 출시" || (mShowReleaseTime && discount != "출시 예정" && discount.indexOf(" 출시") >= 0))
                         discount = getReleaseTime(edition.releaseDate)
 
                     if (discount != "") {
@@ -1092,7 +1100,7 @@ class TransformFragment : Fragment() {
                     discount = game.bundle[0].discountType;
             }
 
-            if (discount == "곧 출시")
+            if (discount == "곧 출시" || (mShowReleaseTime && discount != "출시 예정" && discount.indexOf(" 출시") >= 0))
                 discount = getReleaseTime(game.releaseDate)
 
             if (discount != "" && mShowDiscount) {
