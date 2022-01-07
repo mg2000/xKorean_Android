@@ -441,6 +441,11 @@ class TransformFragment : Fragment() {
         return super.onOptionsItemSelected(item)
     }
 
+    override fun onContextItemSelected(item: MenuItem): Boolean {
+
+        return super.onContextItemSelected(item)
+    }
+
     private fun updateList() {
         val filteredList = mutableListOf<Game>()
 
@@ -1243,34 +1248,67 @@ class TransformFragment : Fragment() {
             holder.imageView.setOnClickListener(onClickListener)
 
             holder.imageView.setOnLongClickListener {
-                val inflater = requireContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
-                val errorReportView = inflater.inflate(R.layout.error_report_dialog, null)
+                val popupMenu = PopupMenu(requireContext(), it)
+                popupMenu.menu.add(0, 0, 0, "한국어 지원 패키지 정보")
+                popupMenu.menu.add(0, 1, 1, "정보 오류 신고")
 
-                AlertDialog.Builder(requireContext())
-                    .setTitle("오류 신고")
-                    .setView(errorReportView)
-                    .setPositiveButton("신고") { _, _ ->
-                        val report = JSONObject()
-                        report.put("name", if (mLanguage == "Korean") game.koreanName else game.name)
-                        report.put("cantBuy", errorReportView.findViewById<CheckBox>(R.id.chk_cant_buy).isChecked.toString())
-                        report.put("noSupportRegion", errorReportView.findViewById<CheckBox>(R.id.chk_no_support_region).isChecked.toString())
-                        report.put("message", errorReportView.findViewById<EditText>(R.id.txt_error_report_etc).text.toString())
-                        report.put("deviceType", "Android")
-                        report.put("deviceRegion", "Mobile")
+                popupMenu.setOnMenuItemClickListener { item ->
+                    when (item.itemId) {
+                        0 -> {
+                            val supportPackageBuilder = StringBuilder()
+                            if (game.packages != "")
+                                supportPackageBuilder.append("* 한국어 지원 패키지: ").append(game.packages)
+                            else
+                                supportPackageBuilder.append("* 확인된 패키지가 없거나 정식 발매 패키지만 한국어를 지원합니다. 확인하신 패키지가 있으면, 오류 신고 기능을 이용해 신고해 주십시오.").append(game.packages)
 
-                        mRequestQueue.add(JsonObjectRequest(Request.Method.POST, "https://xbox-korean-viewer-server2.herokuapp.com/report_error", report, {
-                        //mRequestQueue.add(JsonObjectRequest(Request.Method.POST, "http://192.168.200.8:3000/report_error", report, {
-//                            if (it.has("error"))
-//                                Toast.makeText(requireContext(), "오류를 개발자에게 전달할 수 없습니다. 잠시 후 다시 시도해 주십시오.", Toast.LENGTH_SHORT).show()
-//                            else
-                                Toast.makeText(requireContext(), "오류가 전송되었습니다.", Toast.LENGTH_SHORT).show()
-                        }, {
-                            Toast.makeText(requireContext(), "오류 내용을 전송할 수 없습니다. 잠시 후 다시 시도해 주십시오.", Toast.LENGTH_SHORT).show()
-                        }))
+                            if (game.message.contains("dlregiononly", true))
+                                supportPackageBuilder.append("\n").append("* 한국어를 지원하지 않는 지역이 있습니다. 해외 패키지 구매시 한국어 지원 여부를 확인해 주십시오.")
+
+                            AlertDialog.Builder(requireContext())
+                                .setTitle("한국어 지원 패키지 정보")
+                                .setMessage(supportPackageBuilder.toString())
+                                .setPositiveButton("닫기", null)
+                                .create()
+                                .show()
+                        }
+                        1 -> {
+                            val inflater = requireContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
+                            val errorReportView = inflater.inflate(R.layout.error_report_dialog, null)
+
+                            AlertDialog.Builder(requireContext())
+                                .setTitle("오류 신고")
+                                .setView(errorReportView)
+                                .setPositiveButton("신고") { _, _ ->
+                                    val report = JSONObject()
+                                    report.put("name", if (mLanguage == "Korean") game.koreanName else game.name)
+                                    report.put("cantBuy", errorReportView.findViewById<CheckBox>(R.id.chk_cant_buy).isChecked.toString())
+                                    report.put("noSupportRegion", errorReportView.findViewById<CheckBox>(R.id.chk_no_support_region).isChecked.toString())
+                                    report.put("message", errorReportView.findViewById<EditText>(R.id.txt_error_report_etc).text.toString())
+                                    report.put("deviceType", "Android")
+                                    report.put("deviceRegion", "Mobile")
+
+                                    mRequestQueue.add(JsonObjectRequest(Request.Method.POST, "https://xbox-korean-viewer-server2.herokuapp.com/report_error", report, {
+                                    //mRequestQueue.add(JsonObjectRequest(Request.Method.POST, "http://192.168.200.8:3000/report_error", report, {
+            //                            if (it.has("error"))
+            //                                Toast.makeText(requireContext(), "오류를 개발자에게 전달할 수 없습니다. 잠시 후 다시 시도해 주십시오.", Toast.LENGTH_SHORT).show()
+            //                            else
+                                            Toast.makeText(requireContext(), "오류가 전송되었습니다.", Toast.LENGTH_SHORT).show()
+                                    }, {
+                                        Toast.makeText(requireContext(), "오류 내용을 전송할 수 없습니다. 잠시 후 다시 시도해 주십시오.", Toast.LENGTH_SHORT).show()
+                                    }))
+                                }
+                                .setNegativeButton("취소", null)
+                                .create().show()
+                        }
                     }
-                    .setNegativeButton("취소", null)
-                    .create().show()
 
+                    false
+                }
+
+                popupMenu.show()
+
+
+//
                 true
             }
         }
