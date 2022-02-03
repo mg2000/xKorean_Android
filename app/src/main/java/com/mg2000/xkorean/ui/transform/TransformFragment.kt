@@ -1224,6 +1224,8 @@ class TransformFragment : Fragment() {
                             if (code == "360market" && parsePart.size > 1)
                                 store360Url = parsePart[1]
                         }
+                        else
+                            messageBuilder.append("* ").append(messagePart).append("\n")
                     }
 
                     val messageDialogBuilder = AlertDialog.Builder(requireContext())
