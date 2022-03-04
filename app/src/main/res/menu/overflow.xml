@@ -24,6 +24,9 @@
             android:id="@+id/sort"
             android:title="@string/menu_sort" />
         <item
+            android:id="@+id/sort_priority"
+            android:title="@string/menu_sort_priority" />
+        <item
             android:id="@+id/refresh"
             android:title="@string/menu_refresh" />
         <item

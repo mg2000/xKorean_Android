@@ -8,6 +8,5 @@
     <fragment
         android:id="@+id/nav_transform"
         android:name="com.mg2000.xkorean.ui.transform.TransformFragment"
-        android:label="@string/menu_transform"
         tools:layout="@layout/fragment_transform" />
 </navigation>

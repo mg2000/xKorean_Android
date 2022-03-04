@@ -8,41 +8,41 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.DisplayMetrics
+import android.view.*
+import android.widget.*
+import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.widget.SwitchCompat
+import androidx.core.view.MenuCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import androidx.preference.PreferenceManager
 import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.android.volley.NetworkResponse
 import com.android.volley.Request
 import com.android.volley.RequestQueue
 import com.android.volley.Response
-import com.google.gson.Gson
-import com.mg2000.xkorean.R
-import com.mg2000.xkorean.databinding.FragmentTransformBinding
-import com.mg2000.xkorean.databinding.ItemTransformBinding
-import org.json.JSONArray
-import java.util.zip.GZIPInputStream
-import androidx.recyclerview.widget.GridLayoutManager
-import android.util.DisplayMetrics
-import android.view.*
-import android.widget.*
-import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.widget.SwitchCompat
-import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.core.view.MenuCompat
-import androidx.lifecycle.MutableLiveData
-import androidx.preference.PreferenceManager
-import com.android.volley.toolbox.*
+import com.android.volley.toolbox.HttpHeaderParser
+import com.android.volley.toolbox.ImageRequest
+import com.android.volley.toolbox.JsonObjectRequest
+import com.android.volley.toolbox.Volley
 import com.c.progress_dialog.BlackProgressDialog
+import com.google.gson.Gson
 import com.mg2000.xkorean.IntentRepo
 import com.mg2000.xkorean.MainActivity
 import com.mg2000.xkorean.MainViewModel
-import org.joda.time.DateTime
+import com.mg2000.xkorean.R
+import com.mg2000.xkorean.databinding.FragmentTransformBinding
+import com.mg2000.xkorean.databinding.ItemTransformBinding
 import org.joda.time.format.ISODateTimeFormat
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.*
 import java.text.DecimalFormat
+import java.util.zip.GZIPInputStream
 import kotlin.math.floor
 
 /**
@@ -78,6 +78,7 @@ class TransformFragment : Fragment() {
     private val mFilterCategoryArr = booleanArrayOf(false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false)
     private var mFilterKorean = 0
     private var mSort = 0
+    private var mSortPriority = 0
     private var mLanguage = "Korean"
     private var mShowNewTitle = true
     private var mSearchKeyword = ""
@@ -111,10 +112,10 @@ class TransformFragment : Fragment() {
         val root: View = binding.root
 
         mainViewModel = ViewModelProvider(requireActivity(), MainViewModel.Factory(IntentRepo())).get(MainViewModel::class.java)
-        mainViewModel.intent.get.observe(viewLifecycleOwner, {
+        mainViewModel.intent.get.observe(viewLifecycleOwner) {
             mSearchKeyword = it
             updateList()
-        })
+        }
 
         val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
         val preFilterDevice = JSONArray(preferenceManager.getString("filterDevice", "[ false, false, false, false, false, false, false ]"))
@@ -124,6 +125,7 @@ class TransformFragment : Fragment() {
         }
 
         mSort = preferenceManager.getInt("sort", 0)
+        mSortPriority = preferenceManager.getInt("sortPriority", 0)
         mLanguage = preferenceManager.getString("language", "Korean")!!
         mShowNewTitle = preferenceManager.getBoolean("showNewTitle", true)
         mShowDiscount = preferenceManager.getBoolean("showDiscount", true)
@@ -195,14 +197,14 @@ class TransformFragment : Fragment() {
         val recyclerView = binding.recyclerviewTransform
         val adapter = TransformAdapter()
         recyclerView.adapter = adapter
-        transformViewModel.filteredGames.observe(viewLifecycleOwner, {
+        transformViewModel.filteredGames.observe(viewLifecycleOwner) {
             adapter.submitList(it)
             adapter.notifyDataSetChanged()
 
             mHandler.postDelayed({
                 recyclerView.scrollToPosition(0)
             }, 500)
-        })
+        }
 
         val dataFolder = requireContext().getDir("xKorean", Context.MODE_PRIVATE)
         val cacheFolder = File(dataFolder, "cache")
@@ -348,6 +350,20 @@ class TransformFragment : Fragment() {
                     }
                     .show()
             }
+            R.id.sort_priority -> {
+                val korean = arrayOf("우선 순위 없음", "게임패스 우선")
+                AlertDialog.Builder(requireContext())
+                    .setTitle("정렬 우선 순위 선택")
+                    .setSingleChoiceItems(korean, mSortPriority) { dialog, which ->
+                        mSortPriority = which
+                    }
+                    .setPositiveButton("확인") { dialog, which ->
+                        val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
+                        preferenceManager.edit().putInt("sortPriority", mSortPriority).apply()
+                        updateList()
+                    }
+                    .show()
+            }
             R.id.refresh -> {
                 downloadData()
             }
@@ -416,9 +432,6 @@ class TransformFragment : Fragment() {
                     }
                     .create()
 
-//                val binding = DataBindingUtil.inflate<SettingDialogBinding>(settingDialog.layoutInflater, R.layout.setting_dialog, null, false)
-//                settingDialog.setContentView(binding.root)
-
                 settingDialog.show()
             }
             R.id.about -> {
@@ -428,8 +441,6 @@ class TransformFragment : Fragment() {
                     .setTitle("xKorean 정보")
                     .setMessage("한글화 정보는 엑스박스 정보 카페에서 제공한 데이터를 이용합니다.\n" +
                     "https://cafe.naver.com/xboxinfo\n\n" +
-                    "앱의 UI 소스 코드는 Gamepass Scores 앱을 활용하였습니다.\n" +
-                    "https://github.com/XeonKHJ/GamePassScores\n\n" +
                     "키보드 & 마우스 지원 여부는 XboxKBM 사이트에서 제공받고 있습니다.\n" +
                     "https://xboxkbm.herokuapp.com\n\n" +
                     "버전: ${pInfo.versionName}")
@@ -439,11 +450,6 @@ class TransformFragment : Fragment() {
         }
 
         return super.onOptionsItemSelected(item)
-    }
-
-    override fun onContextItemSelected(item: MenuItem): Boolean {
-
-        return super.onContextItemSelected(item)
     }
 
     private fun updateList() {
@@ -591,30 +597,137 @@ class TransformFragment : Fragment() {
             }
 
             filteredList.add(game)
+        }
 
+        if (mSortPriority == 0) {
             if (mSort == 0) {
                 if (mLanguage == "Korean")
                     filteredList.sortBy { it.koreanName }
                 else
                     filteredList.sortBy { it.name }
-            }
-            else if (mSort == 1) {
+            } else if (mSort == 1) {
                 if (mLanguage == "Korean")
                     filteredList.sortByDescending { it.koreanName }
                 else
                     filteredList.sortByDescending { it.name }
-            }
-            else if (mSort == 2) {
+            } else if (mSort == 2) {
                 if (mLanguage == "Korean")
                     filteredList.sortWith(compareBy<Game> { it.releaseDate }.thenBy { it.koreanName })
                 else
                     filteredList.sortWith(compareBy<Game> { it.releaseDate }.thenBy { it.name })
-            }
-            else {
+            } else {
                 if (mLanguage == "Korean")
                     filteredList.sortWith(compareByDescending<Game> { it.releaseDate }.thenBy { it.koreanName })
                 else
                     filteredList.sortWith(compareByDescending<Game> { it.releaseDate }.thenBy { it.name })
+            }
+        }
+        else {
+            val gamePassNewList = mutableListOf<Game>()
+            val gamePassList = mutableListOf<Game>()
+            val gamePassEndList = mutableListOf<Game>()
+
+            filteredList.forEach {
+                if (it.gamePassPC == "" && it.gamePassConsole == "" && it.gamePassCloud == "") {
+                    if (it.bundle.isNotEmpty()) {
+                        for (bundle in it.bundle) {
+                            if (bundle.gamePassCloud == "O" || bundle.gamePassConsole == "O" || bundle.gamePassPC == "O") {
+                                when {
+                                    bundle.gamePassNew == "O" -> gamePassNewList.add(it)
+                                    bundle.gamePassEnd == "O" -> gamePassEndList.add(it)
+                                    else -> gamePassList.add(it)
+                                }
+
+                                break
+                            }
+                        }
+                    }
+                }
+                else {
+                    when {
+                        it.gamePassNew == "O" -> gamePassNewList.add(it)
+                        it.gamePassEnd == "O" -> gamePassEndList.add(it)
+                        else -> gamePassList.add(it)
+                    }
+                }
+            }
+
+            gamePassNewList.forEach {
+                filteredList.remove(it)
+            }
+
+            gamePassList.forEach {
+                filteredList.remove(it)
+            }
+
+            gamePassEndList.forEach {
+                filteredList.remove(it)
+            }
+
+            if (mSort == 0) {
+                if (mLanguage == "Korean") {
+                    gamePassNewList.sortBy { it.koreanName }
+                    gamePassList.sortBy { it.koreanName }
+                    gamePassEndList.sortBy { it.koreanName }
+                    filteredList.sortBy { it.koreanName }
+                }
+                else {
+                    gamePassNewList.sortBy { it.name }
+                    gamePassList.sortBy { it.name }
+                    gamePassEndList.sortBy { it.name }
+                    filteredList.sortBy { it.name }
+                }
+            } else if (mSort == 1) {
+                if (mLanguage == "Korean") {
+                    gamePassNewList.sortByDescending { it.koreanName }
+                    gamePassList.sortByDescending { it.koreanName }
+                    gamePassEndList.sortByDescending { it.koreanName }
+                    filteredList.sortByDescending { it.koreanName }
+                }
+                else {
+                    gamePassNewList.sortByDescending { it.name }
+                    gamePassList.sortByDescending { it.name }
+                    gamePassEndList.sortByDescending { it.name }
+                    filteredList.sortByDescending { it.name }
+                }
+            } else if (mSort == 2) {
+                if (mLanguage == "Korean") {
+                    gamePassNewList.sortWith(compareBy<Game> { it.releaseDate }.thenBy { it.koreanName })
+                    gamePassList.sortWith(compareBy<Game> { it.releaseDate }.thenBy { it.koreanName })
+                    gamePassEndList.sortWith(compareBy<Game> { it.releaseDate }.thenBy { it.koreanName })
+                    filteredList.sortWith(compareBy<Game> { it.releaseDate }.thenBy { it.koreanName })
+                }
+                else {
+                    gamePassNewList.sortWith(compareBy<Game> { it.releaseDate }.thenBy { it.name })
+                    gamePassList.sortWith(compareBy<Game> { it.releaseDate }.thenBy { it.name })
+                    gamePassEndList.sortWith(compareBy<Game> { it.releaseDate }.thenBy { it.name })
+                    filteredList.sortWith(compareBy<Game> { it.releaseDate }.thenBy { it.name })
+                }
+            } else {
+                if (mLanguage == "Korean") {
+                    gamePassNewList.sortWith(compareByDescending<Game> { it.releaseDate }.thenBy { it.koreanName })
+                    gamePassList.sortWith(compareByDescending<Game> { it.releaseDate }.thenBy { it.koreanName })
+                    gamePassEndList.sortWith(compareByDescending<Game> { it.releaseDate }.thenBy { it.koreanName })
+                    filteredList.sortWith(compareByDescending<Game> { it.releaseDate }.thenBy { it.koreanName })
+                }
+                else {
+                    gamePassNewList.sortWith(compareByDescending<Game> { it.releaseDate }.thenBy { it.name })
+                    gamePassList.sortWith(compareByDescending<Game> { it.releaseDate }.thenBy { it.name })
+                    gamePassEndList.sortWith(compareByDescending<Game> { it.releaseDate }.thenBy { it.name })
+                    filteredList.sortWith(compareByDescending<Game> { it.releaseDate }.thenBy { it.name })
+                }
+            }
+
+            gamePassEndList.asReversed().forEach {
+                filteredList.add(0, it)
+            }
+
+            gamePassList.asReversed().forEach {
+                filteredList.add(0, it)
+            }
+
+            gamePassNewList.asReversed().forEach {
+                filteredList.add(0, it)
             }
         }
 
@@ -1117,7 +1230,7 @@ class TransformFragment : Fragment() {
 
             holder.imageView.setImageBitmap(null)
 
-            getImage(game.id, game.playAnywhere, game.seriesXS, game.oneS, game.pc, game.thumbnail) {
+            getImage(game.id, game.playAnywhere, game.seriesXS, game.oneS, game.pc, if (game.thumbnail == null) "" else game.thumbnail!!) {
                 holder.imageView.setImageBitmap(it)
             }
 
@@ -1153,7 +1266,7 @@ class TransformFragment : Fragment() {
                                     if (mLanguage == "Korean") game.koreanName else game.name,
                                     game.price,
                                     if (game.discount == "곧 출시") getReleaseTime(game.releaseDate) else game.discount,
-                                    game.thumbnail,
+                                    if (game.thumbnail == null) "" else game.thumbnail!!,
                                     game.seriesXS,
                                     game.oneS,
                                     game.pc,
