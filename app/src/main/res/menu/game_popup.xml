@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/popup_package"
+        android:title="한국어 지원 패키지 정보" />
+    <item
+        android:id="@+id/popup_price"
+        android:title="가격 정보" />
+    <item
+        android:id="@+id/popup_immigration"
+        android:title="이민갈까요?" />
+    <item
+        android:id="@+id/popup_report"
+        android:title="정보 오류 신고" />
+</menu>

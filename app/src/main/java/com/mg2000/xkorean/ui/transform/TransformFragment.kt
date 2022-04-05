@@ -37,11 +37,14 @@ import com.mg2000.xkorean.MainViewModel
 import com.mg2000.xkorean.R
 import com.mg2000.xkorean.databinding.FragmentTransformBinding
 import com.mg2000.xkorean.databinding.ItemTransformBinding
+import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.*
 import java.text.DecimalFormat
+import java.text.NumberFormat
+import java.util.*
 import java.util.zip.GZIPInputStream
 import kotlin.math.floor
 
@@ -107,11 +110,11 @@ class TransformFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        transformViewModel = ViewModelProvider(this).get(TransformViewModel::class.java)
+        transformViewModel = ViewModelProvider(this)[TransformViewModel::class.java]
         _binding = FragmentTransformBinding.inflate(inflater, container, false)
         val root: View = binding.root
 
-        mainViewModel = ViewModelProvider(requireActivity(), MainViewModel.Factory(IntentRepo())).get(MainViewModel::class.java)
+        mainViewModel = ViewModelProvider(requireActivity(), MainViewModel.Factory(IntentRepo()))[MainViewModel::class.java]
         mainViewModel.intent.get.observe(viewLifecycleOwner) {
             mSearchKeyword = it
             updateList()
@@ -1049,6 +1052,30 @@ class TransformFragment : Fragment() {
                     goToStore(languageCode, edition.id)
                 }
 
+                imageViewItemEdition.setOnLongClickListener {
+                    val popupMenu = PopupMenu(requireContext(), it)
+                    requireActivity().menuInflater.inflate(R.menu.bundle_popup, popupMenu.menu)
+
+                    popupMenu.menu.getItem(1).isVisible = edition.discountType.contains("출시")
+
+                    popupMenu.setOnMenuItemClickListener { item ->
+                        when (item.itemId) {
+                            R.id.popup_bundle_price -> {
+                                showPriceInfo(edition.price, edition.lowestPrice, edition.languageCode)
+                            }
+                            R.id.popup_bundle_immigration -> {
+                                showImmigrantResult(edition.nzReleaseDate, edition.releaseDate)
+                            }
+                        }
+
+                        false
+                    }
+
+                    popupMenu.show()
+
+                    true
+                }
+
                 v
             }
             else
@@ -1200,22 +1227,22 @@ class TransformFragment : Fragment() {
             var discount = game.discount
 
             if (!game.isAvailable() && game.bundle.size == 1)
-                discount = game.bundle[0].discountType;
+                discount = game.bundle[0].discountType
             else if (game.bundle.isNotEmpty())
             {
                 for (bundle in game.bundle)
                 {
                     if (bundle.discountType.indexOf("할인") >= 0)
                     {
-                        discount = "에디션 할인";
-                        break;
+                        discount = "에디션 할인"
+                        break
                     }
                     else if (discount == "판매 중지" && bundle.discountType != "판매 중지")
-                        discount = "";
+                        discount = ""
                 }
 
                 if (!game.isAvailable() && discount == "")
-                    discount = game.bundle[0].discountType;
+                    discount = game.bundle[0].discountType
             }
 
             if (discount == "곧 출시" || (mShowReleaseTime && discount != "출시 예정" && discount.indexOf(" 출시") >= 0))
@@ -1235,21 +1262,6 @@ class TransformFragment : Fragment() {
             }
 
             val onClickListener = View.OnClickListener {
-                fun getLanguageCodeFromUrl(url: String) : String {
-                    var startIdx = url.indexOf("com/")
-
-                    var endIdx = -1
-                    if (startIdx > 0) {
-                        startIdx += "/com".length
-                        endIdx = url.indexOf("/", startIdx)
-                    }
-
-                    return if (endIdx > 0)
-                        url.substring(startIdx, endIdx)
-                    else
-                        ""
-                }
-
                 fun checkEdition() {
                     if (game.bundle.isEmpty())
                         goToStore(getLanguageCodeFromUrl(game.storeLink), game.id)
@@ -1265,6 +1277,7 @@ class TransformFragment : Fragment() {
                                 editionList.add(Edition(game.id,
                                     if (mLanguage == "Korean") game.koreanName else game.name,
                                     game.price,
+                                    game.lowestPrice,
                                     if (game.discount == "곧 출시") getReleaseTime(game.releaseDate) else game.discount,
                                     if (game.thumbnail == null) "" else game.thumbnail!!,
                                     game.seriesXS,
@@ -1275,11 +1288,14 @@ class TransformFragment : Fragment() {
                                     game.gamePassCloud,
                                     game.gamePassNew,
                                     game.gamePassEnd,
-                                    game.releaseDate
+                                    game.releaseDate,
+                                    game.nzReleaseDate,
+                                    getLanguageCodeFromUrl(game.storeLink)
                                 ))
                             }
 
                             game.bundle.forEach { edition ->
+                                edition.languageCode = getLanguageCodeFromUrl(game.storeLink)
                                 editionList.add(edition)
                             }
 
@@ -1364,12 +1380,25 @@ class TransformFragment : Fragment() {
 
             holder.imageView.setOnLongClickListener {
                 val popupMenu = PopupMenu(requireContext(), it)
-                popupMenu.menu.add(0, 0, 0, "한국어 지원 패키지 정보")
-                popupMenu.menu.add(0, 1, 1, "정보 오류 신고")
+                requireActivity().menuInflater.inflate(R.menu.game_popup, popupMenu.menu)
+
+                popupMenu.menu.getItem(2).isVisible = false
+                if (game.discount.contains("출시"))
+                    popupMenu.menu.getItem(2).isVisible = true
+                else {
+                    if (game.bundle.isNotEmpty()) {
+                        for (bundle in game.bundle) {
+                            if (bundle.discountType.contains("출시")) {
+                                popupMenu.menu.getItem(2).isVisible = true
+                                break
+                            }
+                        }
+                    }
+                }
 
                 popupMenu.setOnMenuItemClickListener { item ->
                     when (item.itemId) {
-                        0 -> {
+                        R.id.popup_package -> {
                             val supportPackageBuilder = StringBuilder()
                             if (game.packages != "")
                                 supportPackageBuilder.append("* 한국어 지원 패키지: ").append(game.packages)
@@ -1386,7 +1415,39 @@ class TransformFragment : Fragment() {
                                 .create()
                                 .show()
                         }
-                        1 -> {
+                        R.id.popup_price -> {
+                            if (game.bundle.isEmpty())
+                                showPriceInfo(game.price, game.lowestPrice, getLanguageCodeFromUrl(game.storeLink))
+                            else {
+                                if (game.isAvailable() || game.bundle.size > 1) {
+                                    AlertDialog.Builder(requireContext())
+                                        .setTitle("가격 정보")
+                                        .setMessage("* 해당 게임은 여러 에디션이 있습니다. 에디션 항목에서 가격을 확인해 주십시오.")
+                                        .setPositiveButton("닫기", null)
+                                        .create()
+                                        .show()
+                                }
+                                else
+                                    showPriceInfo(game.price, game.lowestPrice, getLanguageCodeFromUrl(game.storeLink))
+                            }
+                        }
+                        R.id.popup_immigration -> {
+                            if (game.bundle.isEmpty())
+                                showImmigrantResult(game.nzReleaseDate, game.releaseDate)
+                            else {
+                                if (game.isAvailable() || game.bundle.size > 1) {
+                                    AlertDialog.Builder(requireContext())
+                                        .setTitle("지역 변경시 선행 플레이 가능 여부")
+                                        .setMessage("* 본 게임은 여러 에디션이 있습니다. 에디션을 선택해서 확인해 주십시오.")
+                                        .setPositiveButton("닫기", null)
+                                        .create()
+                                        .show()
+                                }
+                                else
+                                    showImmigrantResult(game.nzReleaseDate, game.releaseDate)
+                            }
+                        }
+                        R.id.popup_report -> {
                             val inflater = requireContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
                             val errorReportView = inflater.inflate(R.layout.error_report_dialog, null)
 
@@ -1431,6 +1492,65 @@ class TransformFragment : Fragment() {
 //        fun updateData(updateList: List<Game>) {
 //            mItems.addAll(updateList)
 //        }
+    }
+
+    private fun getLanguageCodeFromUrl(url: String) : String {
+        var startIdx = url.indexOf("com/")
+
+        var endIdx = -1
+        if (startIdx > 0) {
+            startIdx += "/com".length
+            endIdx = url.indexOf("/", startIdx)
+        }
+
+        return if (endIdx > 0)
+            url.substring(startIdx, endIdx)
+        else
+            ""
+    }
+
+    private fun showPriceInfo(price: Float, lowestPrice: Float, regionCode: String) {
+        val priceInfoBuilder = StringBuilder()
+        val regionCodeParts = regionCode.split("-")
+        val locale = if (regionCodeParts.size == 2)
+            Locale(regionCodeParts[0], regionCodeParts[1])
+        else
+            Locale("ko", "KR")
+
+        val currencyFormatter = NumberFormat.getCurrencyInstance(locale)
+        if (price >= 0)
+        {
+            priceInfoBuilder.append("* 현재 판매가: ").append(currencyFormatter.format(price))
+
+            if (lowestPrice > 0)
+                priceInfoBuilder.append("\n* 역대 최저가: ").append(currencyFormatter.format(price))
+        }
+        else
+            priceInfoBuilder.append("* 판매를 시작하지 않거나 판매가 중지된 타이틀입니다.")
+
+        priceInfoBuilder.append("\n\n* xKorean에서 제공하는 가격 정보는 스토어 가격 정보와 시간차가 있을 수 있습니다. 구매 전에 실제 스토어 가격을 확인해 주십시오.")
+
+        AlertDialog.Builder(requireContext())
+            .setTitle("가격 정보")
+            .setMessage(priceInfoBuilder.toString())
+            .setPositiveButton("닫기", null)
+            .create()
+            .show()
+    }
+
+    private fun showImmigrantResult(nzReleaseDate: String, releaseDate: String) {
+        val message = if (nzReleaseDate != "" && DateTime.parse(nzReleaseDate) < DateTime.parse(releaseDate)) {
+            val nzReleaseTime = DateTime.parse(nzReleaseDate)
+            "* 뉴질랜드 이민시 플레이 가능 시간: ${nzReleaseTime.toString("yyyy.MM.dd tt hh:mm")}"
+        } else
+            "* 뉴질랜드로 지역 변경을 하셔도 일찍 플레이하실 수 없습니다."
+
+        AlertDialog.Builder(requireContext())
+            .setTitle("지역 변경시 선행 플레이 가능 여부")
+            .setMessage(message)
+            .setPositiveButton("닫기", null)
+            .create()
+            .show()
     }
 
     fun getReleaseTime(releaseDate: String) : String {
