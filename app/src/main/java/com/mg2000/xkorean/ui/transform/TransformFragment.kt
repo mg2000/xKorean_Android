@@ -1035,6 +1035,11 @@ class TransformFragment : Fragment() {
                     if (discount != "") {
                         textViewEditionMessage.text = discount
                         textViewEditionMessage.visibility = View.VISIBLE
+
+                        if (discount.contains("할인") && edition.lowestPrice == edition.price)
+                            textViewEditionMessage.setTextColor(Color.YELLOW)
+                        else
+                            textViewEditionMessage.setTextColor(Color.WHITE)
                     }
                     else
                         textViewEditionMessage.visibility = View.INVISIBLE
@@ -1251,6 +1256,19 @@ class TransformFragment : Fragment() {
             if (discount != "" && mShowDiscount) {
                 holder.messageTextView.text = discount
                 holder.messageTextView.visibility = View.VISIBLE
+
+                holder.messageTextView.setTextColor(Color.WHITE)
+                if ((game.isAvailable() && game.discount.contains("할인") && game.lowestPrice == game.price) || (!game.isAvailable() && game.bundle.size == 1 && game.bundle[0].discountType.contains("할인") && game.bundle[0].lowestPrice == game.bundle[0].price))
+                    holder.messageTextView.setTextColor(Color.YELLOW)
+                else if (game.bundle.isNotEmpty())
+                {
+                    for (bundle in game.bundle) {
+                        if (bundle.discountType.contains("할인") && bundle.lowestPrice == bundle.price) {
+                            holder.messageTextView.setTextColor(Color.YELLOW)
+                            break
+                        }
+                    }
+                }
             }
             else
                 holder.messageTextView.visibility = View.INVISIBLE
@@ -1523,7 +1541,7 @@ class TransformFragment : Fragment() {
             priceInfoBuilder.append("* 현재 판매가: ").append(currencyFormatter.format(price))
 
             if (lowestPrice > 0)
-                priceInfoBuilder.append("\n* 역대 최저가: ").append(currencyFormatter.format(price))
+                priceInfoBuilder.append("\n* 역대 최저가: ").append(currencyFormatter.format(lowestPrice))
         }
         else
             priceInfoBuilder.append("* 판매를 시작하지 않거나 판매가 중지된 타이틀입니다.")
