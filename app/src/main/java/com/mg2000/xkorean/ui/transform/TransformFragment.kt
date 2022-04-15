@@ -487,24 +487,25 @@ class TransformFragment : Fragment() {
             val searchPattern = mSearchKeyword.trim().replace(" ", "").lowercase()
 
             for (i in searchPattern.indices) {
-                if (searchPattern[i] in 'ㄱ'..'ㅎ') {
-                    for (j in mKorChr.indices) {
-                        if (searchPattern[i] == mKorChr[j])
-                            searchText += "[${mKorStr[j]}-${(mKorChrInt[j + 1] - 1).toChar()}]"
+                when {
+                    searchPattern[i] in 'ㄱ'..'ㅎ' -> {
+                        for (j in mKorChr.indices) {
+                            if (searchPattern[i] == mKorChr[j])
+                                searchText += "[${mKorStr[j]}-${(mKorChrInt[j + 1] - 1).toChar()}]"
+                        }
                     }
-                }
-                else if (searchPattern[i] >= '가') {
-                    var magic = (searchPattern[i] - '가') % 588
+                    searchPattern[i] >= '가' -> {
+                        var magic = (searchPattern[i] - '가') % 588
 
-                    searchText += if (magic == 0)
-                        "[${searchPattern[i]}-${(searchPattern[i] + 27)}]"
-                    else {
-                        magic = 27 - (magic % 28)
-                        "[${searchPattern[i]}-${(searchPattern[i] + magic)}]"
+                        searchText += if (magic == 0)
+                            "[${searchPattern[i]}-${(searchPattern[i] + 27)}]"
+                        else {
+                            magic = 27 - (magic % 28)
+                            "[${searchPattern[i]}-${(searchPattern[i] + magic)}]"
+                        }
                     }
+                    else -> searchText += searchPattern[i]
                 }
-                else
-                    searchText += searchPattern[i]
             }
         }
 
@@ -626,8 +627,8 @@ class TransformFragment : Fragment() {
                 return@forEach
 
             if (searchText != "" &&
-                searchText.toRegex().find(game.name.lowercase()) == null &&
-                searchText.toRegex().find(game.koreanName.lowercase()) == null) {
+                searchText.toRegex().find(game.name.trim().replace(" ", "").lowercase()) == null &&
+                searchText.toRegex().find(game.koreanName.trim().replace(" ", "").lowercase()) == null) {
                 return@forEach
             }
 
