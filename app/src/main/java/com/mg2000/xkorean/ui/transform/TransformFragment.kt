@@ -100,6 +100,10 @@ class TransformFragment : Fragment() {
         "360market" to "360 마켓플레이스를 통해서만 구매하실 수 있습니다.",
         "windowsmod" to "이 게임은 윈도우에서 한글 패치를 설치하셔야 한국어가 지원됩니다.")
 
+    private val mKorChr = charArrayOf('ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ')
+    private val mKorStr = arrayOf("가", "까", "나", "다", "따", "라", "마", "바", "빠", "사", "싸", "아", "자", "짜", "차","카","타", "파", "하")
+    private val mKorChrInt = intArrayOf(44032, 44620, 45208, 45796, 46384, 46972, 47560, 48148, 48736, 49324, 49912, 50500, 51088, 51676, 52264, 52852, 53440, 54028, 54616, 55204)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setHasOptionsMenu(true)
@@ -476,6 +480,34 @@ class TransformFragment : Fragment() {
             }
         }
 
+        var searchText = ""
+
+        if (mSearchKeyword != "")
+        {
+            val searchPattern = mSearchKeyword.trim().replace(" ", "").lowercase()
+
+            for (i in searchPattern.indices) {
+                if (searchPattern[i] in 'ㄱ'..'ㅎ') {
+                    for (j in mKorChr.indices) {
+                        if (searchPattern[i] == mKorChr[j])
+                            searchText += "[${mKorStr[j]}-${(mKorChrInt[j + 1] - 1).toChar()}]"
+                    }
+                }
+                else if (searchPattern[i] >= '가') {
+                    var magic = (searchPattern[i] - '가') % 588
+
+                    searchText += if (magic == 0)
+                        "[${searchPattern[i]}-${(searchPattern[i] + 27)}]"
+                    else {
+                        magic = 27 - (magic % 28)
+                        "[${searchPattern[i]}-${(searchPattern[i] + magic)}]"
+                    }
+                }
+                else
+                    searchText += searchPattern[i]
+            }
+        }
+
         transformViewModel.gameList?.forEach { game ->
             if (useDeviceFilter) {
                 if (!(mFilterDeviceArr[0] && game.seriesXS == "O" ||
@@ -593,9 +625,9 @@ class TransformFragment : Fragment() {
                 mFilterKorean == 2 && game.localize.indexOf("자막") == -1)
                 return@forEach
 
-            if (mSearchKeyword != "" &&
-                game.name.lowercase().indexOf(mSearchKeyword.lowercase()) == -1 &&
-                game.koreanName.lowercase().indexOf(mSearchKeyword.lowercase()) == -1) {
+            if (searchText != "" &&
+                searchText.toRegex().find(game.name.lowercase()) == null &&
+                searchText.toRegex().find(game.koreanName.lowercase()) == null) {
                 return@forEach
             }
 
