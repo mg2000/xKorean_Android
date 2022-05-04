@@ -454,6 +454,9 @@ class TransformFragment : Fragment() {
 					.setPositiveButton("확인", null)
 					.create().show()
 			}
+			R.id.donation -> {
+				startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://toon.at/donate/637852371342632860")))
+			}
 		}
 
 		return super.onOptionsItemSelected(item)

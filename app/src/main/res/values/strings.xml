@@ -11,5 +11,6 @@
     <string name="menu_refresh">새로고침</string>
     <string name="menu_setting">설정</string>
     <string name="menu_about">정보</string>
+    <string name="menu_donation">후원</string>
     <string name="search_hint">게임 이름을 입력하세요.</string>
 </resources>
