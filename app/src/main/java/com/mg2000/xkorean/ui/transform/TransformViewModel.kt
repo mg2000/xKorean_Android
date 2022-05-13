@@ -10,7 +10,7 @@ class TransformViewModel : ViewModel() {
     var gameList: List<Game>?
         get() = totalGames.value
         set(gameList) {
-            totalGames.value = gameList
+            totalGames.value = gameList ?: listOf()
         }
 
     fun update(gameList: List<Game>) {

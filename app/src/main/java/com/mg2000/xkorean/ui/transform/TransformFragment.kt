@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.*
 import android.net.Uri
+import android.os.AsyncTask
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -94,6 +95,8 @@ class TransformFragment : Fragment() {
 
 	private val mNewTitleList = mutableListOf<String>()
 
+	private val mThumbnailInfoMap = Collections.synchronizedMap(mutableMapOf<String, JSONObject>())
+
 	private val mMessageTemplateMap = mapOf("dlregiononly" to "다음 지역의 스토어에서 다운로드 받아야 한국어가 지원됩니다: [name]",
 		"packageonly" to "패키지 버전만 한국어를 지원합니다.",
 		"usermode" to "이 게임은 유저 모드를 설치하셔야 한국어가 지원됩니다.",
@@ -117,6 +120,8 @@ class TransformFragment : Fragment() {
 		transformViewModel = ViewModelProvider(this)[TransformViewModel::class.java]
 		_binding = FragmentTransformBinding.inflate(inflater, container, false)
 		val root: View = binding.root
+
+
 
 		mainViewModel = ViewModelProvider(requireActivity(), MainViewModel.Factory(IntentRepo()))[MainViewModel::class.java]
 		mainViewModel.intent.get.observe(viewLifecycleOwner) {
@@ -228,7 +233,11 @@ class TransformFragment : Fragment() {
 //        }
 
 		if (transformViewModel.gameList == null)
-			downloadData()
+		{
+			ThumbnailDBLoadTask {
+				downloadData()
+			}.execute()
+		}
 
 		return root
 	}
@@ -603,19 +612,19 @@ class TransformFragment : Fragment() {
 						mFilterCategoryArr[2] && category == "educational" ||
 						mFilterCategoryArr[3] && category == "racing & flying" ||
 						mFilterCategoryArr[4] && category == "role playing" ||
-						mFilterCategoryArr[4] && category == "multi-player online battle arena" ||
-						mFilterCategoryArr[5] && category == "shooter" ||
-						mFilterCategoryArr[6] && category == "sports" ||
-						mFilterCategoryArr[7] && category == "simulation" ||
-						mFilterCategoryArr[8] && category == "action & adventure" ||
-						mFilterCategoryArr[9] && category == "music" ||
-						mFilterCategoryArr[10] && category == "strategy" ||
-						mFilterCategoryArr[11] && category == "card + board" ||
-						mFilterCategoryArr[12] && category == "classics" ||
-						mFilterCategoryArr[13] && category == "puzzle & trivia" ||
-						mFilterCategoryArr[14] && category == "platformer" ||
-						mFilterCategoryArr[15] && category == "casino" ||
-						mFilterCategoryArr[16] && category == "other") {
+						mFilterCategoryArr[5] && category == "multi-player online battle arena" ||
+						mFilterCategoryArr[6] && category == "shooter" ||
+						mFilterCategoryArr[7] && category == "sports" ||
+						mFilterCategoryArr[8] && category == "simulation" ||
+						mFilterCategoryArr[9] && category == "action & adventure" ||
+						mFilterCategoryArr[10] && category == "music" ||
+						mFilterCategoryArr[11] && category == "strategy" ||
+						mFilterCategoryArr[12] && category == "card + board" ||
+						mFilterCategoryArr[13] && category == "classics" ||
+						mFilterCategoryArr[14] && category == "puzzle & trivia" ||
+						mFilterCategoryArr[15] && category == "platformer" ||
+						mFilterCategoryArr[16] && category == "casino" ||
+						mFilterCategoryArr[17] && category == "other") {
 						hasCategory = true
 						break
 					}
@@ -926,11 +935,11 @@ class TransformFragment : Fragment() {
 		mRequestQueue.add(updateTimeRequest)
 	}
 
-	fun getImage(id: String, playAnywhere: String, seriesXS: String, oneS: String, pc: String, thumbnail: String, onLoadedImageListener: (Bitmap?) -> Unit) {
+	fun getImage(id: String, thumbnailID: String, playAnywhere: String, seriesXS: String, oneS: String, pc: String, thumbnail: String, onLoadedImageListener: (Bitmap?) -> Unit) {
 		val dataFolder = requireContext().getDir("xKorean", Context.MODE_PRIVATE)
 		val cacheFolder = File(dataFolder, "cache")
 
-		val cacheName = StringBuilder(id)
+		val cacheName = StringBuilder(thumbnailID)
 		when {
 			playAnywhere == "O" -> {
 				if (seriesXS == "O")
@@ -948,6 +957,27 @@ class TransformFragment : Fragment() {
 		if (cacheFile.exists())
 			onLoadedImageListener.invoke(BitmapFactory.decodeFile(cacheFile.absolutePath))
 		else {
+
+			mThumbnailInfoMap[id]?.let { info ->
+				val oldName = StringBuilder(info.getString("thumbnailID"))
+				when {
+					info.getString("playAnywhere") == "O" -> {
+						if (info.getString("seriesXS") == "O")
+							oldName.append("_playanywhere_xs")
+						else
+							oldName.append("_playanywhere_os")
+					}
+					info.getString("seriesXS") == "O" -> oldName.append("_xs")
+					info.getString("oneS") == "O" -> oldName.append("_os")
+					info.getString("pc") == "O" -> oldName.append("_pc")
+				}
+				oldName.append(".jpg")
+
+				val oldFile = File(cacheFolder, cacheName.toString())
+				if (oldFile.exists())
+					oldFile.delete()
+			}
+
 			val request = ImageRequest(thumbnail, {
 				val titleImage = Bitmap.createBitmap(584, 800, Bitmap.Config.ARGB_8888)
 
@@ -973,6 +1003,15 @@ class TransformFragment : Fragment() {
 				FileOutputStream(cacheFile).use { fos ->
 					titleImage.compress(Bitmap.CompressFormat.JPEG, 75, fos)
 				}
+
+				val newInfo = JSONObject()
+				newInfo.put("thumbnailID", thumbnailID)
+				newInfo.put("playAnywhere", playAnywhere)
+				newInfo.put("seriesXS", seriesXS)
+				newInfo.put("oneS", oneS)
+				newInfo.put("pc", pc)
+
+				ThumbnailDBUpdateTask(id, newInfo).execute()
 
 				onLoadedImageListener.invoke(titleImage)
 			}, 0, 0, ImageView.ScaleType.FIT_XY, null, {
@@ -1085,7 +1124,7 @@ class TransformFragment : Fragment() {
 
 				val imageViewItemEdition = v.findViewById<ImageView>(R.id.image_view_item_edition)
 
-				getImage(edition.id, playAnywhere, edition.seriesXS, edition.oneS, edition.pc, edition.thumbnail) {
+				getImage(edition.id, edition.thumbnailID, playAnywhere, edition.seriesXS, edition.oneS, edition.pc, edition.thumbnail) {
 					imageViewItemEdition.setImageBitmap(it)
 				}
 
@@ -1123,6 +1162,39 @@ class TransformFragment : Fragment() {
 				null
 		}
 
+	}
+
+	private inner class ThumbnailDBLoadTask(private val onLoadCompleteListener: () -> Unit) : AsyncTask<Void, Void, Void?>() {
+		override fun doInBackground(vararg p0: Void?): Void? {
+			val thumbnailDao = XKoreanDatabase.getInstance(requireContext()).thumbnailDao()
+			val thumbnailInfoArr = thumbnailDao.loadThumbnailInfo()
+
+			for (i in thumbnailInfoArr.indices) {
+				mThumbnailInfoMap[thumbnailInfoArr[i].id] = JSONObject(thumbnailInfoArr[i].info)
+			}
+
+			return null
+		}
+
+		override fun onPostExecute(result: Void?) {
+			onLoadCompleteListener.invoke()
+		}
+	}
+
+	private inner class ThumbnailDBUpdateTask(private val id: String, private val info: JSONObject) : AsyncTask<Void, Void, Void?>() {
+		override fun doInBackground(vararg p0: Void?): Void? {
+			val thumbnailDao = XKoreanDatabase.getInstance(requireContext()).thumbnailDao()
+			synchronized(mThumbnailInfoMap) {
+				if (mThumbnailInfoMap.containsKey(id))
+					thumbnailDao.updateThumbnailInfo(ThumbnailInfo(id, info.toString()))
+				else
+					thumbnailDao.insertThumbnailInfo(ThumbnailInfo(id, info.toString()))
+			}
+
+			mThumbnailInfoMap[id] = info
+
+			return null
+		}
 	}
 
 	inner class TransformAdapter :
@@ -1311,7 +1383,7 @@ class TransformFragment : Fragment() {
 
 			holder.imageView.setImageBitmap(null)
 
-			getImage(game.id, game.playAnywhere, game.seriesXS, game.oneS, game.pc, if (game.thumbnail == null) "" else game.thumbnail!!) {
+			getImage(game.id, game.thumbnailID, game.playAnywhere, game.seriesXS, game.oneS, game.pc, if (game.thumbnail == null) "" else game.thumbnail!!) {
 				holder.imageView.setImageBitmap(it)
 			}
 
@@ -1334,6 +1406,7 @@ class TransformFragment : Fragment() {
 									game.lowestPrice,
 									if (game.discount == "곧 출시") getReleaseTime(game.releaseDate) else game.discount,
 									if (game.thumbnail == null) "" else game.thumbnail!!,
+									game.thumbnailID,
 									game.seriesXS,
 									game.oneS,
 									game.pc,
