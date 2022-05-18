@@ -939,7 +939,7 @@ class TransformFragment : Fragment() {
 		val dataFolder = requireContext().getDir("xKorean", Context.MODE_PRIVATE)
 		val cacheFolder = File(dataFolder, "cache")
 
-		val cacheName = StringBuilder(thumbnailID)
+		val cacheName = StringBuilder("${id}_${thumbnailID}")
 		when {
 			playAnywhere == "O" -> {
 				if (seriesXS == "O")
@@ -957,9 +957,8 @@ class TransformFragment : Fragment() {
 		if (cacheFile.exists())
 			onLoadedImageListener.invoke(BitmapFactory.decodeFile(cacheFile.absolutePath))
 		else {
-
 			mThumbnailInfoMap[id]?.let { info ->
-				val oldName = StringBuilder(info.getString("thumbnailID"))
+				val oldName = StringBuilder("${id}_${info.getString("thumbnailID")}")
 				when {
 					info.getString("playAnywhere") == "O" -> {
 						if (info.getString("seriesXS") == "O")
