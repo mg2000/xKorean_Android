@@ -11,7 +11,7 @@ android {
 		applicationId "com.mg2000.xkorean"
 		minSdk 24
 		targetSdk 32
-		versionCode 17
+		versionCode 18
 		versionName "2.0.2"
 
 		testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
