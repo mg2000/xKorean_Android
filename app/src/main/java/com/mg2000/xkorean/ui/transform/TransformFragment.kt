@@ -47,6 +47,7 @@ import java.text.DecimalFormat
 import java.text.NumberFormat
 import java.util.*
 import java.util.zip.GZIPInputStream
+import kotlin.Comparator
 import kotlin.math.floor
 
 /**
@@ -367,7 +368,7 @@ class TransformFragment : Fragment() {
 					.show()
 			}
 			R.id.sort_priority -> {
-				val korean = arrayOf("우선 순위 없음", "게임패스 우선")
+				val korean = arrayOf("우선 순위 없음", "게임패스 우선", "할인율 우선")
 				AlertDialog.Builder(requireContext())
 					.setTitle("정렬 우선 순위 선택")
 					.setSingleChoiceItems(korean, mSortPriority) { dialog, which ->
@@ -670,7 +671,7 @@ class TransformFragment : Fragment() {
 					filteredList.sortWith(compareByDescending<Game> { it.releaseDate }.thenBy { it.name })
 			}
 		}
-		else {
+		else if (mSortPriority == 1) {
 			val gamePassNewList = mutableListOf<Game>()
 			val gamePassList = mutableListOf<Game>()
 			val gamePassEndList = mutableListOf<Game>()
@@ -776,6 +777,68 @@ class TransformFragment : Fragment() {
 
 			gamePassNewList.asReversed().forEach {
 				filteredList.add(0, it)
+			}
+		}
+		else {
+			val comparator = compareByDescending<Game> {
+				fun getMaxDiscount(game: Game) : Int {
+					fun extractDiscount(str: String) : Int {
+						var v = 0
+
+						val idx = str.indexOf("%")
+						if (idx > 0) {
+							var startIdx = idx
+							while (startIdx > 0) {
+								if (str[startIdx] == ' ') {
+									startIdx++
+									break
+								}
+
+								startIdx--
+							}
+
+							v = str.substring(startIdx, idx).toInt()
+						}
+
+						return v
+					}
+
+					var discount = extractDiscount(game.discount)
+
+					if (game.bundle.isNotEmpty()) {
+						game.bundle.forEach {
+							val bundleDiscount = extractDiscount(it.discountType)
+							if (bundleDiscount > discount)
+								discount = bundleDiscount
+						}
+					}
+
+					return discount
+				}
+
+				getMaxDiscount(it)
+			}
+
+			if (mSort == 0) {
+				if (mLanguage == "Korean")
+					filteredList.sortWith(comparator.thenBy { it.koreanName })
+				else
+					filteredList.sortWith(comparator.thenBy { it.name })
+			} else if (mSort == 1) {
+				if (mLanguage == "Korean")
+					filteredList.sortWith(comparator.thenByDescending { it.koreanName })
+				else
+					filteredList.sortWith(comparator.thenByDescending { it.name })
+			} else if (mSort == 2) {
+				if (mLanguage == "Korean")
+					filteredList.sortWith(comparator.thenBy { it.releaseDate }.thenBy { it.koreanName })
+				else
+					filteredList.sortWith(comparator.thenBy { it.releaseDate }.thenBy { it.name })
+			} else {
+				if (mLanguage == "Korean")
+					filteredList.sortWith(comparator.thenByDescending { it.releaseDate }.thenBy { it.koreanName })
+				else
+					filteredList.sortWith(comparator.thenByDescending { it.releaseDate }.thenBy { it.name })
 			}
 		}
 
