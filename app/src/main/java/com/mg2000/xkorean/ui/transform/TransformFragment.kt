@@ -672,6 +672,7 @@ class TransformFragment : Fragment() {
 			}
 		}
 		else if (mSortPriority == 1) {
+			val gamePassComingList = mutableListOf<Game>() 
 			val gamePassNewList = mutableListOf<Game>()
 			val gamePassList = mutableListOf<Game>()
 			val gamePassEndList = mutableListOf<Game>()
@@ -684,6 +685,7 @@ class TransformFragment : Fragment() {
 								when {
 									bundle.gamePassNew == "O" -> gamePassNewList.add(it)
 									bundle.gamePassEnd == "O" -> gamePassEndList.add(it)
+									bundle.gamePassComing == "O" -> gamePassComingList.add(it)
 									else -> gamePassList.add(it)
 								}
 
@@ -696,9 +698,14 @@ class TransformFragment : Fragment() {
 					when {
 						it.gamePassNew == "O" -> gamePassNewList.add(it)
 						it.gamePassEnd == "O" -> gamePassEndList.add(it)
+						it.gamePassComing == "O" -> gamePassComingList.add(it)
 						else -> gamePassList.add(it)
 					}
 				}
+			}
+
+			gamePassComingList.forEach {
+				filteredList.remove(it)
 			}
 
 			gamePassNewList.forEach {
@@ -715,12 +722,14 @@ class TransformFragment : Fragment() {
 
 			if (mSort == 0) {
 				if (mLanguage == "Korean") {
+					gamePassComingList.sortBy { it.koreanName }
 					gamePassNewList.sortBy { it.koreanName }
 					gamePassList.sortBy { it.koreanName }
 					gamePassEndList.sortBy { it.koreanName }
 					filteredList.sortBy { it.koreanName }
 				}
 				else {
+					gamePassComingList.sortBy { it.name }
 					gamePassNewList.sortBy { it.name }
 					gamePassList.sortBy { it.name }
 					gamePassEndList.sortBy { it.name }
@@ -728,12 +737,14 @@ class TransformFragment : Fragment() {
 				}
 			} else if (mSort == 1) {
 				if (mLanguage == "Korean") {
+					gamePassComingList.sortByDescending { it.koreanName }
 					gamePassNewList.sortByDescending { it.koreanName }
 					gamePassList.sortByDescending { it.koreanName }
 					gamePassEndList.sortByDescending { it.koreanName }
 					filteredList.sortByDescending { it.koreanName }
 				}
 				else {
+					gamePassComingList.sortByDescending { it.name }
 					gamePassNewList.sortByDescending { it.name }
 					gamePassList.sortByDescending { it.name }
 					gamePassEndList.sortByDescending { it.name }
@@ -741,12 +752,14 @@ class TransformFragment : Fragment() {
 				}
 			} else if (mSort == 2) {
 				if (mLanguage == "Korean") {
+					gamePassComingList.sortWith(compareBy<Game> { it.releaseDate }.thenBy { it.koreanName })
 					gamePassNewList.sortWith(compareBy<Game> { it.releaseDate }.thenBy { it.koreanName })
 					gamePassList.sortWith(compareBy<Game> { it.releaseDate }.thenBy { it.koreanName })
 					gamePassEndList.sortWith(compareBy<Game> { it.releaseDate }.thenBy { it.koreanName })
 					filteredList.sortWith(compareBy<Game> { it.releaseDate }.thenBy { it.koreanName })
 				}
 				else {
+					gamePassComingList.sortWith(compareBy<Game> { it.releaseDate }.thenBy { it.name })
 					gamePassNewList.sortWith(compareBy<Game> { it.releaseDate }.thenBy { it.name })
 					gamePassList.sortWith(compareBy<Game> { it.releaseDate }.thenBy { it.name })
 					gamePassEndList.sortWith(compareBy<Game> { it.releaseDate }.thenBy { it.name })
@@ -754,12 +767,14 @@ class TransformFragment : Fragment() {
 				}
 			} else {
 				if (mLanguage == "Korean") {
+					gamePassComingList.sortWith(compareByDescending<Game> { it.releaseDate }.thenBy { it.koreanName })
 					gamePassNewList.sortWith(compareByDescending<Game> { it.releaseDate }.thenBy { it.koreanName })
 					gamePassList.sortWith(compareByDescending<Game> { it.releaseDate }.thenBy { it.koreanName })
 					gamePassEndList.sortWith(compareByDescending<Game> { it.releaseDate }.thenBy { it.koreanName })
 					filteredList.sortWith(compareByDescending<Game> { it.releaseDate }.thenBy { it.koreanName })
 				}
 				else {
+					gamePassComingList.sortWith(compareByDescending<Game> { it.releaseDate }.thenBy { it.name })
 					gamePassNewList.sortWith(compareByDescending<Game> { it.releaseDate }.thenBy { it.name })
 					gamePassList.sortWith(compareByDescending<Game> { it.releaseDate }.thenBy { it.name })
 					gamePassEndList.sortWith(compareByDescending<Game> { it.releaseDate }.thenBy { it.name })
@@ -776,6 +791,10 @@ class TransformFragment : Fragment() {
 			}
 
 			gamePassNewList.asReversed().forEach {
+				filteredList.add(0, it)
+			}
+
+			gamePassComingList.asReversed().forEach {
 				filteredList.add(0, it)
 			}
 		}
@@ -1124,6 +1143,8 @@ class TransformFragment : Fragment() {
 					gamePassTag += " 신규"
 				else if (edition.gamePassEnd == "O")
 					gamePassTag += " 만기"
+				else if (edition.gamePassComing == "O")
+					gamePassTag += " 예정"
 
 				val textViewEditionGamePassBack = v.findViewById<TextView>(R.id.text_view_edition_game_pass_back)
 				val textViewEditionGamePass = v.findViewById<TextView>(R.id.text_view_edition_game_pass)
@@ -1318,6 +1339,8 @@ class TransformFragment : Fragment() {
 				gamePassTag += " 신규"
 			else if (game.gamePassEnd == "O")
 				gamePassTag += " 만기"
+			else if (game.gamePassComing == "O")
+				gamePassTag += " 예정"
 			else {
 				for (bundle in game.bundle)
 				{
@@ -1329,6 +1352,11 @@ class TransformFragment : Fragment() {
 					else if (game.gamePassEnd != "")
 					{
 						gamePassTag += " 만기"
+						break
+					}
+					else if (game.gamePassComing != "")
+					{
+						gamePassTag += " 예정"
 						break
 					}
 				}
@@ -1477,6 +1505,7 @@ class TransformFragment : Fragment() {
 									game.gamePassCloud,
 									game.gamePassNew,
 									game.gamePassEnd,
+									game.gamePassComing,
 									game.releaseDate,
 									game.nzReleaseDate,
 									game.languageCode
