@@ -11,8 +11,8 @@ android {
 		applicationId "com.mg2000.xkorean"
 		minSdk 24
 		targetSdk 32
-		versionCode 21
-		versionName "2.0.5"
+		versionCode 22
+		versionName "2.0.7"
 
 		testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 	}
@@ -34,12 +34,18 @@ android {
 		viewBinding true
 	}
 	namespace 'com.mg2000.xkorean'
+
+	applicationVariants.all { variant ->
+		variant.outputs.all {
+			outputFileName = "xKorean.apk"
+		}
+	}
 }
 
 dependencies {
-	implementation 'androidx.core:core-ktx:1.7.0'
-	implementation 'androidx.appcompat:appcompat:1.4.1'
-	implementation 'com.google.android.material:material:1.6.0'
+	implementation 'androidx.core:core-ktx:1.8.0'
+	implementation 'androidx.appcompat:appcompat:1.4.2'
+	implementation 'com.google.android.material:material:1.6.1'
 	implementation 'androidx.recyclerview:recyclerview:1.2.1'
 	implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
 	implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.4.1'

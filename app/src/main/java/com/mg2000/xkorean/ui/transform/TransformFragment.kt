@@ -47,7 +47,6 @@ import java.text.DecimalFormat
 import java.text.NumberFormat
 import java.util.*
 import java.util.zip.GZIPInputStream
-import kotlin.Comparator
 import kotlin.math.floor
 
 /**
@@ -107,6 +106,8 @@ class TransformFragment : Fragment() {
 	private val mKorChr = charArrayOf('ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ')
 	private val mKorStr = arrayOf("가", "까", "나", "다", "따", "라", "마", "바", "빠", "사", "싸", "아", "자", "짜", "차","카","타", "파", "하")
 	private val mKorChrInt = intArrayOf(44032, 44620, 45208, 45796, 46384, 46972, 47560, 48148, 48736, 49324, 49912, 50500, 51088, 51676, 52264, 52852, 53440, 54028, 54616, 55204)
+
+	private val mGoolePlay = false
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
@@ -267,6 +268,10 @@ class TransformFragment : Fragment() {
 			updateList()
 
 			false
+		}
+
+		if (mGoolePlay) {
+			menu.findItem(R.id.donation).isVisible = false
 		}
 
 		MenuCompat.setGroupDividerEnabled(menu, true)
@@ -918,6 +923,8 @@ class TransformFragment : Fragment() {
 		}
 
 		val progressDialog = BlackProgressDialog(requireContext(), "한국어 데이터 확인중...")
+		progressDialog.setCancelable(false)
+		progressDialog.setCanceledOnTouchOutside(false)
 		progressDialog.show()
 
 		val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
@@ -1782,7 +1789,8 @@ class TransformFragment : Fragment() {
 	}
 
 	fun goToStore(languageCode: String, id: String) {
-		startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.microsoft.com/$languageCode/p/xkorean/$id")))
+		if (!mGoolePlay)
+			startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.microsoft.com/$languageCode/p/xkorean/$id")))
 	}
 
 	class TransformViewHolder(binding: ItemTransformBinding) :
