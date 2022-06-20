@@ -5,14 +5,14 @@ plugins {
 }
 
 android {
-	compileSdk 32
+	compileSdk 33
 
 	defaultConfig {
 		applicationId "com.mg2000.xkorean"
 		minSdk 24
-		targetSdk 32
-		versionCode 22
-		versionName "2.0.7"
+		targetSdk 33
+		versionCode 24
+		versionName "2.1"
 
 		testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 	}

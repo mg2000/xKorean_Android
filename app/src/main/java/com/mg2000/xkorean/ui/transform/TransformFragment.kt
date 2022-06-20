@@ -107,7 +107,8 @@ class TransformFragment : Fragment() {
 	private val mKorStr = arrayOf("가", "까", "나", "다", "따", "라", "마", "바", "빠", "사", "싸", "아", "자", "짜", "차","카","타", "파", "하")
 	private val mKorChrInt = intArrayOf(44032, 44620, 45208, 45796, 46384, 46972, 47560, 48148, 48736, 49324, 49912, 50500, 51088, 51676, 52264, 52852, 53440, 54028, 54616, 55204)
 
-	private val mGoolePlay = false
+	private var mFullFeature = false
+	private var mFullFeatureReady = 0
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
@@ -123,7 +124,8 @@ class TransformFragment : Fragment() {
 		_binding = FragmentTransformBinding.inflate(inflater, container, false)
 		val root: View = binding.root
 
-
+		val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
+		mFullFeature = preferenceManager.getBoolean("fullFeature", false)
 
 		mainViewModel = ViewModelProvider(requireActivity(), MainViewModel.Factory(IntentRepo()))[MainViewModel::class.java]
 		mainViewModel.intent.get.observe(viewLifecycleOwner) {
@@ -131,7 +133,6 @@ class TransformFragment : Fragment() {
 			updateList()
 		}
 
-		val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
 		val preFilterDevice = JSONArray(preferenceManager.getString("filterDevice", "[ false, false, false, false, false, false, false ]"))
 
 		for (i in 0 until preFilterDevice.length()) {
@@ -270,9 +271,7 @@ class TransformFragment : Fragment() {
 			false
 		}
 
-		if (mGoolePlay) {
-			menu.findItem(R.id.donation).isVisible = false
-		}
+		menu.findItem(R.id.donation).isVisible = mFullFeature
 
 		MenuCompat.setGroupDividerEnabled(menu, true)
 
@@ -1789,8 +1788,21 @@ class TransformFragment : Fragment() {
 	}
 
 	fun goToStore(languageCode: String, id: String) {
-		if (!mGoolePlay)
+		if (mFullFeature)
 			startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.microsoft.com/$languageCode/p/xkorean/$id")))
+		else if ((id == "BPN08ZDRPSFK" && mFullFeatureReady == 0) ||
+			(id == "C1SDBNRFXT1D" && mFullFeatureReady == 1))
+			mFullFeatureReady++
+		else if (id == "BPKDQSSFQ9WV" && mFullFeatureReady == 2) {
+			mFullFeature = true
+
+			val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
+			preferenceManager.edit().putBoolean("fullFeature", true).apply()
+
+			Toast.makeText(context, "봉인이 해제되었습니다.", Toast.LENGTH_SHORT).show()
+		}
+		else
+			mFullFeatureReady = 0
 	}
 
 	class TransformViewHolder(binding: ItemTransformBinding) :
