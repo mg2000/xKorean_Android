@@ -1765,7 +1765,7 @@ class TransformFragment : Fragment() {
 	private fun showImmigrantResult(nzReleaseDate: String, releaseDate: String) {
 		val message = if (nzReleaseDate != "" && DateTime.parse(nzReleaseDate) < DateTime.parse(releaseDate)) {
 			val nzReleaseTime = DateTime.parse(nzReleaseDate)
-			"* 뉴질랜드 지역변경시 플레이 가능 시간: ${nzReleaseTime.toString("yyyy.MM.dd tt hh:mm")}"
+			"* 뉴질랜드 지역변경시 플레이 가능 시간: ${nzReleaseTime.toString("yyyy.MM.dd aa hh:mm")}"
 		} else
 			"* 뉴질랜드로 지역 변경을 하셔도 일찍 플레이하실 수 없습니다."
 
