@@ -469,7 +469,7 @@ class TransformFragment : Fragment() {
 					.create().show()
 			}
 			R.id.donation -> {
-				startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://toon.at/donate/637852371342632860")))
+				startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://fanding.kr/user/xKorean")))
 			}
 		}
 
@@ -929,10 +929,10 @@ class TransformFragment : Fragment() {
 		val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
 		val dataFolder = requireContext().getDir("xKorean", Context.MODE_PRIVATE)
 
-		val updateTimeRequest = JsonObjectRequest(Request.Method.POST, "https://xbox-korean-viewer-server2.herokuapp.com/last_modified_time", null, { updateInfo ->
+		val updateTimeRequest = JsonObjectRequest(Request.Method.POST, "http://xkorean.info/last_modified_time", null, { updateInfo ->
 			val lastModifiedTime = preferenceManager.getString("lastModifiedTime", "")
 			if (lastModifiedTime == "" || lastModifiedTime != updateInfo.getString("lastModifiedTime")) {
-				val request = BinaryArrayRequest("https://xbox-korean-viewer-server2.herokuapp.com/title_list_zip", {
+				val request = BinaryArrayRequest("http://xkorean.info/title_list_zip", {
 					try {
 						val gzipInputStream = GZIPInputStream(ByteArrayInputStream(it))
 						val outputStream = ByteArrayOutputStream()
@@ -1687,7 +1687,7 @@ class TransformFragment : Fragment() {
 									report.put("deviceType", "Android")
 									report.put("deviceRegion", "Mobile")
 
-									mRequestQueue.add(JsonObjectRequest(Request.Method.POST, "https://xbox-korean-viewer-server2.herokuapp.com/report_error", report, {
+									mRequestQueue.add(JsonObjectRequest(Request.Method.POST, "http://xkorean.info/report_error", report, {
 										//mRequestQueue.add(JsonObjectRequest(Request.Method.POST, "http://192.168.200.8:3000/report_error", report, {
 										//                            if (it.has("error"))
 										//                                Toast.makeText(requireContext(), "오류를 개발자에게 전달할 수 없습니다. 잠시 후 다시 시도해 주십시오.", Toast.LENGTH_SHORT).show()
