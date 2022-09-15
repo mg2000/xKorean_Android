@@ -501,7 +501,7 @@ class TransformFragment : Fragment() {
 
 		if (mSearchKeyword != "")
 		{
-			val searchPattern = mSearchKeyword.trim().replace(" ", "").lowercase()
+			val searchPattern = mSearchKeyword.trim().replace(" ", "").replace("\\", "\\\\").replace("[", "\\[").replace("^", "\\^").replace("(", "\\(").replace("*", "\\*").replace("?", "\\?").replace("+", "\\+").replace("|", "\\|").lowercase()
 
 			for (i in searchPattern.indices) {
 				when {
@@ -1620,6 +1620,20 @@ class TransformFragment : Fragment() {
 					}
 				}
 
+				popupMenu.menu.getItem(3).isVisible = false
+				if (game.gamePassCloud == "O")
+					popupMenu.menu.getItem(3).isVisible = true
+				else
+				{
+					for (bundle in game.bundle) {
+						if (bundle.gamePassCloud == "O")
+						{
+							popupMenu.menu.getItem(3).isVisible = true
+							break
+						}
+					}
+				}
+
 				popupMenu.setOnMenuItemClickListener { item ->
 					when (item.itemId) {
 						R.id.popup_package -> {
@@ -1670,6 +1684,23 @@ class TransformFragment : Fragment() {
 								else
 									showImmigrantResult(game.nzReleaseDate, game.releaseDate)
 							}
+						}
+						R.id.popup_cloud -> {
+							val productID = if (game.gamePassCloud == "O")
+								game.id
+							else {
+								var id = ""
+								for (bundle in game.bundle) {
+									if (bundle.gamePassCloud == "O") {
+										id = bundle.id
+										break
+									}
+								}
+
+								id
+							}
+
+							startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.xbox.com/play/games/xKorean/$productID")))
 						}
 						R.id.popup_report -> {
 							val inflater = requireContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
