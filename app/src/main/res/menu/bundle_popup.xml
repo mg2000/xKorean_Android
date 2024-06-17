@@ -7,4 +7,10 @@
     <item
         android:id="@+id/popup_bundle_immigration"
         android:title="이민갈까요?" />
+    <item
+        android:id="@+id/popup_bundle_noti_lowest_price"
+        android:title="최저가 알림" />
+    <item
+        android:id="@+id/popup_bundle_cancel_noti_lowest_price"
+        android:title="최저가 알림 취소" />
 </menu>

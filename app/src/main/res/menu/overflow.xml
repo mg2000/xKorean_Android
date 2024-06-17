@@ -18,6 +18,9 @@
         <item
             android:id="@+id/filter_korean"
             android:title="@string/menu_korean" />
+        <item
+            android:id="@+id/filter_age"
+            android:title="@string/menu_age" />
     </group>
     <group>
         <item

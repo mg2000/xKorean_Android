@@ -7,6 +7,7 @@ import android.graphics.*
 import android.net.Uri
 import android.os.AsyncTask
 import android.os.Bundle
+import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.util.DisplayMetrics
@@ -22,6 +23,7 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.al.mond.fastscroller.FastScroller
 import com.android.volley.NetworkResponse
 import com.android.volley.Request
 import com.android.volley.RequestQueue
@@ -39,8 +41,11 @@ import com.mg2000.xkorean.R
 import com.mg2000.xkorean.databinding.FragmentTransformBinding
 import com.mg2000.xkorean.databinding.ItemTransformBinding
 import org.joda.time.DateTime
+import org.joda.time.Duration
+import org.joda.time.format.DateTimeFormat
 import org.joda.time.format.ISODateTimeFormat
 import org.json.JSONArray
+import org.json.JSONException
 import org.json.JSONObject
 import java.io.*
 import java.text.DecimalFormat
@@ -78,9 +83,10 @@ class TransformFragment : Fragment() {
 	private val mHandler = Handler(Looper.getMainLooper())
 
 	private val mFilterDeviceArr = booleanArrayOf(false, false, false, false, false, false, false)
-	private val mFilterCapabilityArr = booleanArrayOf(false, false, false, false, false, false, false, false, false, false)
+	private val mFilterCapabilityArr = booleanArrayOf(false, false, false, false, false, false, false, false, false, false, false, false)
 	private val mFilterCategoryArr = booleanArrayOf(false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false)
 	private var mFilterKorean = 0
+	private var mFilterAge = 0
 	private var mSort = 0
 	private var mSortPriority = 0
 	private var mLanguage = "Korean"
@@ -100,15 +106,21 @@ class TransformFragment : Fragment() {
 	private val mMessageTemplateMap = mapOf("dlregiononly" to "다음 지역의 스토어에서 다운로드 받아야 한국어가 지원됩니다: [name]",
 		"packageonly" to "패키지 버전만 한국어를 지원합니다.",
 		"usermode" to "이 게임은 유저 모드를 설치하셔야 한국어가 지원됩니다.",
+		"usermod" to "이 게임은 유저 모드를 설치하셔야 한국어가 지원됩니다.",
 		"360market" to "360 마켓플레이스를 통해서만 구매하실 수 있습니다.",
-		"windowsmod" to "이 게임은 윈도우에서 한글 패치를 설치하셔야 한국어가 지원됩니다.")
+		"windowsmod" to "이 게임은 윈도우에서 한글 패치를 설치하셔야 한국어가 지원됩니다.",
+		"freeweekend1" to "게임패스 코어/얼티밋 유저는 다음 시간까지 무료로 플레이할 수 있습니다: [name]",
+		"freeweekend2" to "이 게임은 다음 시간까지 무료로 플레이할 수 있습니다: [name]")
 
 	private val mKorChr = charArrayOf('ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ')
 	private val mKorStr = arrayOf("가", "까", "나", "다", "따", "라", "마", "바", "빠", "사", "싸", "아", "자", "짜", "차","카","타", "파", "하")
 	private val mKorChrInt = intArrayOf(44032, 44620, 45208, 45796, 46384, 46972, 47560, 48148, 48736, 49324, 49912, 50500, 51088, 51676, 52264, 52852, 53440, 54028, 54616, 55204)
 
-	private var mFullFeature = false
-	private var mFullFeatureReady = 0
+	private val mExchangeRateMap = mutableMapOf<String, Float>()
+	private val mNotiList = mutableListOf<NotiData>()
+
+	private var mFreeWeekendStartDate = ""
+	private var mFreeWeekendEndDate = ""
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
@@ -125,7 +137,6 @@ class TransformFragment : Fragment() {
 		val root: View = binding.root
 
 		val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
-		mFullFeature = preferenceManager.getBoolean("fullFeature", false)
 
 		mainViewModel = ViewModelProvider(requireActivity(), MainViewModel.Factory(IntentRepo()))[MainViewModel::class.java]
 		mainViewModel.intent.get.observe(viewLifecycleOwner) {
@@ -196,17 +207,20 @@ class TransformFragment : Fragment() {
 		root.viewTreeObserver.addOnGlobalLayoutListener {
 			fun convertDPToPixels(dp: Int) : Float {
 				val metrics = DisplayMetrics()
-				requireActivity().windowManager.defaultDisplay.getMetrics(metrics)
-				val logicalDensity = metrics.density
-				return dp * logicalDensity
+				val activityInfo = activity
+				return if (activityInfo != null) {
+					activityInfo.windowManager.defaultDisplay.getMetrics(metrics)
+					val logicalDensity = metrics.density
+					dp * logicalDensity
+				}
+				else
+					1f
 			}
 
 			val columnWidth = 160
 
-			println("화면 너비 ${root.width} ${convertDPToPixels(columnWidth)}")
-
 			val spanCount = floor(root.width / convertDPToPixels(columnWidth).toDouble()).toInt()
-			((root as RecyclerView).layoutManager as GridLayoutManager).spanCount = spanCount
+			(binding.recyclerviewTransform.layoutManager as GridLayoutManager).spanCount = spanCount
 		}
 
 		val recyclerView = binding.recyclerviewTransform
@@ -242,6 +256,8 @@ class TransformFragment : Fragment() {
 			}.execute()
 		}
 
+		FastScroller(binding.handleView, null).bind(binding.recyclerviewTransform)
+
 		return root
 	}
 
@@ -271,7 +287,7 @@ class TransformFragment : Fragment() {
 			false
 		}
 
-		menu.findItem(R.id.donation).isVisible = mFullFeature
+		menu.findItem(R.id.donation).isVisible = true //mFullFeature
 
 		MenuCompat.setGroupDividerEnabled(menu, true)
 
@@ -312,7 +328,7 @@ class TransformFragment : Fragment() {
 					.show()
 			}
 			R.id.filter_capability -> {
-				val capabilities = arrayOf("게임패스", "할인", "플레이 애니웨어", "돌비 애트모스", "키보드/마우스", "로컬 협동", "온라인 협동", "최대 120프레임", "프레임 부스트", "무료(F2P)")
+				val capabilities = arrayOf("게임패스", "할인", "플레이 애니웨어", "돌비 애트모스", "키보드/마우스", "로컬 협동", "온라인 협동", "최대 120프레임", "프레임 부스트", "무료(F2P)", "이용 가능 게임만", "주말 무료")
 				AlertDialog.Builder(requireContext())
 					.setTitle("특성 선택")
 					.setMultiChoiceItems(capabilities, mFilterCapabilityArr) { dialog, which, isChecked ->
@@ -352,7 +368,19 @@ class TransformFragment : Fragment() {
 					.setSingleChoiceItems(korean, mFilterKorean) { dialog, which ->
 						mFilterKorean = which
 					}
-					.setPositiveButton("확인") { dialog, which ->
+					.setPositiveButton("확인") { _, _ ->
+						updateList()
+					}
+					.show()
+			}
+			R.id.filter_age -> {
+				val age = arrayOf("모든 게임", "만 15세 이하만", "만 12세 이하만", "전체 이용가만")
+				AlertDialog.Builder(requireContext())
+					.setTitle("연령대 선택")
+					.setSingleChoiceItems(age, mFilterAge) { dialog, which ->
+						mFilterAge = which
+					}
+					.setPositiveButton("확인") { _, _ ->
 						updateList()
 					}
 					.show()
@@ -361,10 +389,10 @@ class TransformFragment : Fragment() {
 				val korean = arrayOf("이름 순 오름차순", "이름 순 내림차순", "출시일 오름차순", "출시일 내림차순")
 				AlertDialog.Builder(requireContext())
 					.setTitle("정렬 방식 선택")
-					.setSingleChoiceItems(korean, mSort) { dialog, which ->
+					.setSingleChoiceItems(korean, mSort) { _, which ->
 						mSort = which
 					}
-					.setPositiveButton("확인") { dialog, which ->
+					.setPositiveButton("확인") { _, _ ->
 						val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
 						preferenceManager.edit().putInt("sort", mSort).apply()
 						updateList()
@@ -372,7 +400,7 @@ class TransformFragment : Fragment() {
 					.show()
 			}
 			R.id.sort_priority -> {
-				val korean = arrayOf("우선 순위 없음", "게임패스 우선", "할인율 우선")
+				val korean = arrayOf("우선 순위 없음", "게임패스 우선", "할인율 우선", "판매가 우선")
 				AlertDialog.Builder(requireContext())
 					.setTitle("정렬 우선 순위 선택")
 					.setSingleChoiceItems(korean, mSortPriority) { dialog, which ->
@@ -463,7 +491,7 @@ class TransformFragment : Fragment() {
 					.setMessage("한글화 정보는 엑스박스 정보 카페에서 제공한 데이터를 이용합니다.\n" +
 							"https://cafe.naver.com/xboxinfo\n\n" +
 							"키보드 & 마우스 지원 여부는 XboxKBM 사이트에서 제공받고 있습니다.\n" +
-							"https://xboxkbm.herokuapp.com\n\n" +
+							"https://xboxkbm.netlify.app/\n\n" +
 							"버전: ${pInfo.versionName}")
 					.setPositiveButton("확인", null)
 					.create().show()
@@ -599,6 +627,9 @@ class TransformFragment : Fragment() {
 				}
 			}
 
+			val parser = ISODateTimeFormat.dateTime()
+			val today = DateTime()
+
 			if (mFilterCapabilityArr[2] && game.playAnywhere == "" ||
 				mFilterCapabilityArr[3] && game.dolbyAtmos == "" ||
 				mFilterCapabilityArr[4] && game.consoleKeyboardMouse == "" ||
@@ -606,7 +637,8 @@ class TransformFragment : Fragment() {
 				mFilterCapabilityArr[6] && game.onlineCoop == "" ||
 				mFilterCapabilityArr[7] && game.fps120 == "" ||
 				mFilterCapabilityArr[8] && game.fpsBoost == "" ||
-				mFilterCapabilityArr[9] && game.discount.indexOf("무료") == -1)
+				mFilterCapabilityArr[9] && game.discount.indexOf("무료") == -1 ||
+				mFilterCapabilityArr[10] && ((parser.parseDateTime(game.releaseDate) > today && (game.gamePassComing == "O" || (game.gamePassPC != "O" && game.gamePassConsole != "O" && game.gamePassCloud != "O"))) || (game.discount == "판매 중지" && game.gamePassPC != "O" && game.gamePassConsole != "O" && game.gamePassCloud != "O" && game.bundle.isEmpty())))
 				return@forEach
 
 			if (useCategoryFilter) {
@@ -643,10 +675,38 @@ class TransformFragment : Fragment() {
 				mFilterKorean == 2 && game.localize.indexOf("자막") == -1)
 				return@forEach
 
+			if (mFilterAge == 1 && game.age == "18")
+				return@forEach
+			else if (mFilterAge == 2 && (game.age == "18" || game.age == "15"))
+				return@forEach
+			else if (mFilterAge == 3 && (game.age == "18" || game.age == "15" || game.age == "12"))
+				return@forEach
+
 			if (searchText != "" &&
 				searchText.toRegex().find(game.name.trim().replace(" ", "").lowercase()) == null &&
 				searchText.toRegex().find(game.koreanName.trim().replace(" ", "").lowercase()) == null) {
 				return@forEach
+			}
+
+			if (mFilterCapabilityArr[11]) {
+				var freeWeekend = false;
+				if (game.discount.contains("주말 무료"))
+					freeWeekend = true;
+
+				if (!freeWeekend && game.bundle.isNotEmpty())
+				{
+					for (bundle in game.bundle)
+					{
+						if (bundle.discountType.contains("주말 무료"))
+						{
+							freeWeekend = true;
+							break;
+						}
+					}
+				}
+
+				if (!freeWeekend)
+					return@forEach
 			}
 
 			filteredList.add(game)
@@ -802,7 +862,7 @@ class TransformFragment : Fragment() {
 				filteredList.add(0, it)
 			}
 		}
-		else {
+		else if (mSortPriority == 2) {
 			val comparator = compareByDescending<Game> {
 				fun getMaxDiscount(game: Game) : Int {
 					fun extractDiscount(str: String) : Int {
@@ -829,8 +889,8 @@ class TransformFragment : Fragment() {
 					var discount = extractDiscount(game.discount)
 
 					if (game.bundle.isNotEmpty()) {
-						game.bundle.forEach {
-							val bundleDiscount = extractDiscount(it.discountType)
+						game.bundle.forEach { edition ->
+							val bundleDiscount = extractDiscount(edition.discountType)
 							if (bundleDiscount > discount)
 								discount = bundleDiscount
 						}
@@ -840,6 +900,56 @@ class TransformFragment : Fragment() {
 				}
 
 				getMaxDiscount(it)
+			}
+
+			if (mSort == 0) {
+				if (mLanguage == "Korean")
+					filteredList.sortWith(comparator.thenBy { it.koreanName })
+				else
+					filteredList.sortWith(comparator.thenBy { it.name })
+			} else if (mSort == 1) {
+				if (mLanguage == "Korean")
+					filteredList.sortWith(comparator.thenByDescending { it.koreanName })
+				else
+					filteredList.sortWith(comparator.thenByDescending { it.name })
+			} else if (mSort == 2) {
+				if (mLanguage == "Korean")
+					filteredList.sortWith(comparator.thenBy { it.releaseDate }.thenBy { it.koreanName })
+				else
+					filteredList.sortWith(comparator.thenBy { it.releaseDate }.thenBy { it.name })
+			} else {
+				if (mLanguage == "Korean")
+					filteredList.sortWith(comparator.thenByDescending { it.releaseDate }.thenBy { it.koreanName })
+				else
+					filteredList.sortWith(comparator.thenByDescending { it.releaseDate }.thenBy { it.name })
+			}
+		}
+		else {
+			val comparator = compareBy<Game> {
+				fun getLowestPrice(game: Game) : Float {
+					fun extractPrice(price: Float, languageCode: String) : Float {
+						return if (price == -1f)
+							9999999f
+						else if (languageCode == "ko-kr")
+							price
+						else
+							price * mExchangeRateMap.getValue(languageCode)
+					}
+
+					var lowestPrice = extractPrice(game.price, game.languageCode)
+
+					if (game.bundle.isNotEmpty()) {
+						game.bundle.forEach { bundle ->
+							val bundlePrice = extractPrice(bundle.price, game.languageCode)
+							if ((bundlePrice > -1 && lowestPrice > bundlePrice) || lowestPrice == -1f)
+								lowestPrice = bundlePrice
+						}
+					}
+
+					return lowestPrice
+				}
+
+				getLowestPrice(it)
 			}
 
 			if (mSort == 0) {
@@ -903,22 +1013,18 @@ class TransformFragment : Fragment() {
 			updateList()
 		}
 
-		fun loadCacheList() : Boolean {
-			val dataFolder = requireContext().getDir("xKorean", Context.MODE_PRIVATE)
-			val dataFile = File(dataFolder, "games.json")
-			return if (dataFile.exists()) {
-				loadJSONArray(JSONArray(dataFile.readText()))
-				true
+		fun loadCacheList(cacheData: JSONObject) {
+			if (cacheData.has("freeWeekendPeriod")) {
+				val freeWeekendPeriod = cacheData.getJSONObject("freeWeekendPeriod")
+				mFreeWeekendStartDate = freeWeekendPeriod.getString("startDate")
+				mFreeWeekendEndDate = freeWeekendPeriod.getString("endDate")
 			}
-			else
-			{
-				AlertDialog.Builder(requireContext())
-					.setTitle("데이터 수신 오류")
-					.setMessage("한국어 정보를 확인할 수 없습니다. 잠시 후 다시 시도해 주십시오.")
-					.setPositiveButton("확인", null)
-					.create().show()
-				false
+
+			for (i in 0 until cacheData.getJSONArray("exchangeRate").length()) {
+				mExchangeRateMap[cacheData.getJSONArray("exchangeRate").getJSONObject(i).getString("country")] = cacheData.getJSONArray("exchangeRate").getJSONObject(i).getDouble("rate").toFloat()
 			}
+
+			loadJSONArray(cacheData.getJSONArray("games"))
 		}
 
 		val progressDialog = BlackProgressDialog(requireContext(), "한국어 데이터 확인중...")
@@ -928,99 +1034,154 @@ class TransformFragment : Fragment() {
 
 		val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
 		val dataFolder = requireContext().getDir("xKorean", Context.MODE_PRIVATE)
+		val dataFile = File(dataFolder, "games.json")
+		var oldData = JSONObject()
 
-		val updateTimeRequest = JsonObjectRequest(Request.Method.POST, "http://xkorean.info/last_modified_time", null, { updateInfo ->
-			val lastModifiedTime = preferenceManager.getString("lastModifiedTime", "")
-			if (lastModifiedTime == "" || lastModifiedTime != updateInfo.getString("lastModifiedTime")) {
-				val request = BinaryArrayRequest("http://xkorean.info/title_list_zip", {
-					try {
-						val gzipInputStream = GZIPInputStream(ByteArrayInputStream(it))
-						val outputStream = ByteArrayOutputStream()
+		try {
+			if (dataFile.exists())
+				oldData = JSONObject(dataFile.readText())
+		}
+		catch (e: Exception) {
+			println("기존 파일 손상: ${e.localizedMessage}")
+		}
 
-						val dataBuffer = ByteArray(32768)
-						var len = gzipInputStream.read(dataBuffer)
-						while (len > 0) {
-							outputStream.write(dataBuffer, 0, len)
-							len = gzipInputStream.read(dataBuffer)
-						}
-						gzipInputStream.close()
+		fun loadUpdateTime() {
+			val updateTimeRequest = JsonObjectRequest(Request.Method.POST, "https://xkorean-33255dfcde3e.herokuapp.com/last_modified_time", null, { updateInfo ->
+				val lastModifiedTime = preferenceManager.getString("lastModifiedTime", "")
+				if (lastModifiedTime == "" || lastModifiedTime != updateInfo.getString("lastModifiedTime") || !oldData.has("games")) {
+					val request = BinaryArrayRequest("https://xkorean-33255dfcde3e.herokuapp.com/title_list_ex_zip", {
+						try {
+							val gzipInputStream = GZIPInputStream(ByteArrayInputStream(it))
+							val outputStream = ByteArrayOutputStream()
 
-						val str = outputStream.toString("utf-8")
-						outputStream.close()
+							val dataBuffer = ByteArray(32768)
+							var len = gzipInputStream.read(dataBuffer)
+							while (len > 0) {
+								outputStream.write(dataBuffer, 0, len)
+								len = gzipInputStream.read(dataBuffer)
+							}
+							gzipInputStream.close()
 
-						val dataFile = File(dataFolder, "games.json")
+							val str = outputStream.toString("utf-8")
+							outputStream.close()
 
-						val jsonList = JSONArray(str)
+							val titleData = JSONObject(str)
 
-						mNewTitleList.clear()
-						if (mShowNewTitle && dataFile.exists()) {
-							val oldDataList = JSONArray(dataFile.readText())
-							for (i in 0 until jsonList.length()) {
-								var oldTitle = false
-								for (j in 0 until oldDataList.length()) {
-									if (jsonList.getJSONObject(i)
-											.getString("id") == oldDataList.getJSONObject(j)
-											.getString("id")
-									) {
-										oldDataList.remove(j)
-										oldTitle = true
-										break
+							val freeWeekendPeriod = titleData.getJSONObject("freeWeekendPeriod")
+							mFreeWeekendStartDate = if (freeWeekendPeriod.has("startDate"))
+								freeWeekendPeriod.getString("startDate")
+							else
+								""
+
+							mFreeWeekendEndDate = if (freeWeekendPeriod.has("endDate"))
+								freeWeekendPeriod.getString("endDate")
+							else
+								""
+
+							for (i in 0 until titleData.getJSONArray("exchangeRate").length()) {
+								mExchangeRateMap[titleData.getJSONArray("exchangeRate").getJSONObject(i).getString("country")] = titleData.getJSONArray("exchangeRate").getJSONObject(i).getDouble("rate").toFloat()
+							}
+
+							mNewTitleList.clear()
+							if (mShowNewTitle && oldData.has("games")) {
+								for (i in 0 until titleData.getJSONArray("games").length()) {
+									var oldTitle = false
+									for (j in 0 until oldData.getJSONArray("games").length()) {
+										if (titleData.getJSONArray("games").getJSONObject(i)
+												.getString("id") == oldData.getJSONArray("games").getJSONObject(j)
+												.getString("id")
+										) {
+											oldData.getJSONArray("games").remove(j)
+											oldTitle = true
+											break
+										}
+									}
+
+									if (!oldTitle) {
+										if (mLanguage == "Korean")
+											mNewTitleList.add(
+												titleData.getJSONArray("games").getJSONObject(i).getString("koreanName")
+											)
+										else
+											mNewTitleList.add(
+												titleData.getJSONArray("games").getJSONObject(i).getString("name")
+											)
 									}
 								}
-
-								if (!oldTitle) {
-									if (mLanguage == "Korean")
-										mNewTitleList.add(
-											jsonList.getJSONObject(i).getString("koreanName")
-										)
-									else
-										mNewTitleList.add(
-											jsonList.getJSONObject(i).getString("name")
-										)
-								}
 							}
-						}
 
-						dataFile.writeText(str)
+							dataFile.writeText(str)
 
-						loadJSONArray(jsonList)
+							loadJSONArray(titleData.getJSONArray("games"))
 
 //            adapter.updateData(gameList)
 //            adapter.notifyDataSetChanged()
-						preferenceManager.edit()
-							.putString("lastModifiedTime", updateInfo.getString("lastModifiedTime"))
-							.apply()
+							preferenceManager.edit()
+								.putString("lastModifiedTime", updateInfo.getString("lastModifiedTime"))
+								.apply()
 
 
-					}
-					catch (e: EOFException) {
-						Toast.makeText(requireContext(), "서버에서 데이터를 가져올 수 없습니다. 잠시 후 다시 시도해 주세요.", Toast.LENGTH_SHORT).show()
-					}
-					finally {
+						}
+						catch (e: EOFException) {
+							Toast.makeText(requireContext(), "서버에서 데이터를 가져올 수 없습니다. 잠시 후 다시 시도해 주세요.", Toast.LENGTH_SHORT).show()
+						}
+						finally {
+							progressDialog.dismiss()
+						}
+					}, {
+						loadCacheList(oldData)
 						progressDialog.dismiss()
-					}
-				}, {
-					val loadSuccess = loadCacheList()
-					progressDialog.dismiss()
-					if (loadSuccess)
 						Toast.makeText(requireContext(), "한국어 타이틀 정보를 확인할 수 없어서, 기존 데이터를 보여줍니다.", Toast.LENGTH_SHORT).show()
-				})
-				request.tag = "update"
-				mRequestQueue.add(request)
-			}
-			else {
-				loadCacheList()
+					})
+					request.tag = "update"
+					mRequestQueue.add(request)
+				}
+				else {
+					loadCacheList(oldData)
+					progressDialog.dismiss()
+				}
+			}, {
+				loadCacheList(oldData)
 				progressDialog.dismiss()
-			}
-		}, {
-			val loadSuccess = loadCacheList()
-			progressDialog.dismiss()
-			if (loadSuccess)
 				Toast.makeText(requireContext(), "서버 정보를 확인할 수 없어서, 기존 데이터를 보여줍니다.", Toast.LENGTH_SHORT).show()
-		})
-		updateTimeRequest.tag = "update"
+			})
+			updateTimeRequest.tag = "update"
+			mRequestQueue.add(updateTimeRequest)
+		}
 
-		mRequestQueue.add(updateTimeRequest)
+		val token = preferenceManager.getString("fcmToken", "")
+
+		if (token == "") {
+			loadUpdateTime()
+		}
+		else {
+			val notiToken = JSONObject()
+			notiToken.put("token", token)
+			val notiListRequest = JsonObjectRequest(Request.Method.POST, "https://xkorean-33255dfcde3e.herokuapp.com/get_noti_list", notiToken, { notiData ->
+			//val notiListRequest = JsonObjectRequest(Request.Method.POST, "http://192.168.2.7:8080/get_noti_list", notiToken, { notiData ->
+					val notiList = notiData.getJSONArray("noti")
+
+					for (i in 0 until notiList.length()) {
+						val notiData = notiList.getJSONObject(i)
+						mNotiList.add(
+							NotiData(
+								notiData.getString("product_id"),
+								notiData.getInt("type")
+							)
+						)
+					}
+
+					loadUpdateTime()
+				},
+				{
+					loadUpdateTime()
+					Toast.makeText(requireContext(), "알림 정보를 확인할 수 없습니다.", Toast.LENGTH_SHORT)
+						.show()
+				})
+
+			notiListRequest.tag = "update"
+			mRequestQueue.add(notiListRequest)
+		}
 	}
 
 	fun getImage(id: String, thumbnailID: String, playAnywhere: String, seriesXS: String, oneS: String, pc: String, thumbnail: String, onLoadedImageListener: (Bitmap?) -> Unit) {
@@ -1227,13 +1388,34 @@ class TransformFragment : Fragment() {
 
 					popupMenu.menu.getItem(1).isVisible = edition.discountType.contains("출시")
 
+					var alreadyRegistered = false
+					for (notiData in mNotiList) {
+						if (notiData.productID == edition.id && notiData.type == 0) {
+							popupMenu.menu.getItem(2).isVisible = false
+							popupMenu.menu.getItem(3).isVisible = true
+							alreadyRegistered = true
+							break
+						}
+					}
+
+					if (!alreadyRegistered) {
+						popupMenu.menu.getItem(2).isVisible = true
+						popupMenu.menu.getItem(3).isVisible = false
+					}
+
 					popupMenu.setOnMenuItemClickListener { item ->
 						when (item.itemId) {
 							R.id.popup_bundle_price -> {
 								showPriceInfo(edition.price, edition.lowestPrice, edition.languageCode)
 							}
 							R.id.popup_bundle_immigration -> {
-								showImmigrantResult(edition.nzReleaseDate, edition.releaseDate)
+								showImmigrantResult(edition.kiReleaseDate, edition.nzReleaseDate, edition.releaseDate)
+							}
+							R.id.popup_bundle_noti_lowest_price -> {
+								registerNoti(edition.id, 0)
+							}
+							R.id.popup_bundle_cancel_noti_lowest_price -> {
+								cancelNoti(edition.id, 0)
 							}
 						}
 
@@ -1278,9 +1460,9 @@ class TransformFragment : Fragment() {
 					thumbnailDao.updateThumbnailInfo(ThumbnailInfo(id, info.toString()))
 				else
 					thumbnailDao.insertThumbnailInfo(ThumbnailInfo(id, info.toString()))
-			}
 
-			mThumbnailInfoMap[id] = info
+				mThumbnailInfoMap[id] = info
+			}
 
 			return null
 		}
@@ -1439,15 +1621,23 @@ class TransformFragment : Fragment() {
 				discount = game.bundle[0].discountType
 			else if (game.bundle.isNotEmpty())
 			{
+				if (game.discount != "코어 주말 무료" && game.discount != "주말 무료") {
+					for (bundle in game.bundle) {
+						if (bundle.discountType.indexOf("할인") >= 0) {
+							discount = "에디션 할인"
+							break
+						} else if (discount == "판매 중지" && bundle.discountType != "판매 중지")
+							discount = ""
+					}
+				}
+
 				for (bundle in game.bundle)
 				{
-					if (bundle.discountType.indexOf("할인") >= 0)
+					if (bundle.discountType.contains("주말 무료"))
 					{
-						discount = "에디션 할인"
+						discount = bundle.discountType
 						break
 					}
-					else if (discount == "판매 중지" && bundle.discountType != "판매 중지")
-						discount = ""
 				}
 
 				if (!game.isAvailable() && discount == "")
@@ -1514,6 +1704,7 @@ class TransformFragment : Fragment() {
 									game.gamePassComing,
 									game.releaseDate,
 									game.nzReleaseDate,
+									game.kiReleaseDate,
 									game.languageCode
 								))
 							}
@@ -1541,20 +1732,18 @@ class TransformFragment : Fragment() {
 					}
 				}
 
-				if (game.message == "")
-					checkEdition()
-				else {
+				val messageBuilder = StringBuilder()
+				var store360Url = ""
+				if (game.message.trim() != "") {
 					val messageData = game.message.split("\n")
 
-					val messageBuilder = StringBuilder()
-					var store360Url = ""
 					for (messagePart in messageData) {
 						val parsePart = messagePart.split("=")
 						val code = parsePart[0].lowercase()
 
 						if (mMessageTemplateMap.containsKey(code)) {
-							fun convertToCountryCodeToStr(code: String) : String {
-								return when(code.lowercase()) {
+							fun convertToCountryCodeToStr(code: String): String {
+								return when (code.lowercase()) {
 									"kr" -> "한국"
 									"us" -> "미국"
 									"jp" -> "일본"
@@ -1567,7 +1756,10 @@ class TransformFragment : Fragment() {
 							var messageStr = mMessageTemplateMap.getValue(code)
 							if (messageStr.indexOf("[name]") >= 0 && parsePart.size > 1) {
 								messageStr = if (code == "dlregiononly")
-									messageStr.replace("[name]", convertToCountryCodeToStr(parsePart[1]))
+									messageStr.replace(
+										"[name]",
+										convertToCountryCodeToStr(parsePart[1])
+									)
 								else
 									messageStr.replace("[name]", parsePart[1])
 							}
@@ -1576,11 +1768,65 @@ class TransformFragment : Fragment() {
 
 							if (code == "360market" && parsePart.size > 1)
 								store360Url = parsePart[1]
-						}
-						else
+						} else
 							messageBuilder.append("* ").append(messagePart).append("\n")
 					}
+				}
 
+				var hasCoreFreeWeekend = false
+				if (game.discount == "코어 주말 무료")
+					hasCoreFreeWeekend = true
+				if (!hasCoreFreeWeekend && game.bundle.isNotEmpty())
+				{
+					for (bundle in game.bundle)
+					{
+						if (bundle.discountType == "코어 주말 무료")
+						{
+							hasCoreFreeWeekend = true
+							break
+						}
+					}
+				}
+
+				val parser = ISODateTimeFormat.dateTime()
+				if (hasCoreFreeWeekend && mFreeWeekendStartDate != "" && mFreeWeekendEndDate != "")
+				{
+					val startDate = parser.parseDateTime(mFreeWeekendStartDate)
+					val endDate = parser.parseDateTime(mFreeWeekendEndDate)
+
+					if (messageBuilder.isNotEmpty())
+						messageBuilder.append("\n")
+					messageBuilder.append(mMessageTemplateMap.getValue("freeweekend1").replace("[name]", "${startDate.toString("yyyy.MM.dd aa hh:mm")} ~ ${endDate.toString("yyyy.MM.dd aa hh:mm")}"))
+				}
+
+				var hasFreeWeekend = false;
+				if (game.discount == "주말 무료")
+					hasFreeWeekend = true
+				if (!hasFreeWeekend && game.bundle.isNotEmpty())
+				{
+					for (bundle in game.bundle)
+					{
+						if (bundle.discountType == "주말 무료")
+						{
+							hasFreeWeekend = true
+							break
+						}
+					}
+				}
+
+				if (hasFreeWeekend && mFreeWeekendStartDate != "" && mFreeWeekendEndDate != "")
+				{
+					val startDate = parser.parseDateTime(mFreeWeekendStartDate)
+					val endDate = parser.parseDateTime(mFreeWeekendEndDate)
+
+					if (messageBuilder.isNotEmpty())
+						messageBuilder.append("\n")
+					messageBuilder.append(mMessageTemplateMap.getValue("freeweekend2").replace("[name]", "${startDate.toString("yyyy.MM.dd aa hh:mm")} ~ ${endDate.toString("yyyy.MM.dd aa hh:mm")}"))
+				}
+
+				if (messageBuilder.isEmpty())
+					checkEdition()
+				else {
 					val messageDialogBuilder = AlertDialog.Builder(requireContext())
 						.setTitle("스토어 이동전에...")
 						.setMessage(messageBuilder.toString().trim())
@@ -1597,7 +1843,6 @@ class TransformFragment : Fragment() {
 
 					messageDialogBuilder.create().show()
 				}
-
 			}
 
 			holder.imageView.setOnClickListener(onClickListener)
@@ -1631,6 +1876,57 @@ class TransformFragment : Fragment() {
 							popupMenu.menu.getItem(3).isVisible = true
 							break
 						}
+					}
+				}
+
+				popupMenu.menu.getItem(4).isVisible = false
+				if (game.gamePassRegisterDate != "")
+					popupMenu.menu.getItem(4).isVisible = true
+
+				popupMenu.menu.getItem(5).isVisible = false
+				popupMenu.menu.getItem(6).isVisible = false
+				val preference = PreferenceManager.getDefaultSharedPreferences(requireContext())
+				if (preference.getString("fcmToken", "") != "") {
+					var gameID = ""
+					if (game.bundle.isEmpty())
+						gameID = game.id
+					else if (!game.isAvailable() && game.bundle.size == 1)
+						gameID = game.bundle[0].id
+
+					var alreadyNotiRegistered = false
+					for (notiData in mNotiList) {
+						if (notiData.type == 0) {
+							if (notiData.productID == gameID) {
+								popupMenu.menu.getItem(5).isVisible = false
+								popupMenu.menu.getItem(6).isVisible = true
+								alreadyNotiRegistered = true
+								break
+							}
+						}
+					}
+
+					if (!alreadyNotiRegistered) {
+						if (game.discount != "판매 중지" || game.bundle.isNotEmpty()) {
+							popupMenu.menu.getItem(5).isVisible = true
+							popupMenu.menu.getItem(6).isVisible = false
+						}
+					}
+
+					alreadyNotiRegistered = false
+					for (notiData in mNotiList) {
+						if (notiData.type == 1) {
+							if (notiData.productID == game.id) {
+								popupMenu.menu.getItem(7).isVisible = false
+								popupMenu.menu.getItem(8).isVisible = true
+								alreadyNotiRegistered = true
+								break
+							}
+						}
+					}
+
+					if (!alreadyNotiRegistered) {
+						popupMenu.menu.getItem(7).isVisible = true
+						popupMenu.menu.getItem(8).isVisible = false
 					}
 				}
 
@@ -1671,7 +1967,7 @@ class TransformFragment : Fragment() {
 						}
 						R.id.popup_immigration -> {
 							if (game.bundle.isEmpty())
-								showImmigrantResult(game.nzReleaseDate, game.releaseDate)
+								showImmigrantResult(game.kiReleaseDate, game.nzReleaseDate, game.releaseDate)
 							else {
 								if (game.isAvailable() || game.bundle.size > 1) {
 									AlertDialog.Builder(requireContext())
@@ -1682,7 +1978,7 @@ class TransformFragment : Fragment() {
 										.show()
 								}
 								else
-									showImmigrantResult(game.nzReleaseDate, game.releaseDate)
+									showImmigrantResult(game.kiReleaseDate, game.nzReleaseDate, game.releaseDate)
 							}
 						}
 						R.id.popup_cloud -> {
@@ -1702,6 +1998,73 @@ class TransformFragment : Fragment() {
 
 							startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.xbox.com/play/games/xKorean/$productID")))
 						}
+						R.id.popup_gamepass_period -> {
+							val message = StringBuilder()
+							val parser = DateTimeFormat.forPattern("yyyy-MM-dd")
+							val registerDate = parser.parseDateTime(game.gamePassRegisterDate)
+
+							val duration = Duration(registerDate, DateTime())
+
+							message.append("게임패스 등록일: ${registerDate.year}. ${registerDate.monthOfYear}. ${registerDate.dayOfMonth}. (${DecimalFormat("#,###").format(duration.standardDays)}일)")
+
+							var gamePassEnd = false;
+							if (game.gamePassEnd == "O")
+								gamePassEnd = true;
+							else if (game.bundle.isNotEmpty()) {
+								for (bundle in game.bundle) {
+									if (bundle.gamePassEnd == "O") {
+										gamePassEnd = true
+										break
+									}
+								}
+							}
+
+							if (gamePassEnd)
+								message.append("\n\n").append("* 이 게임은 2주 내에 게임패스에 내려갈 예정입니다.")
+							else if (game.isFirstParty == "O")
+								message.append("\n\n").append("* 이 게임은 퍼스트 파티 타이틀로 게임패스에서 내려가지 않습니다. 다만 일부 게임은 게임 내 컨텐츠 라이센스 만료등의 이유로 판매가 종료되면서, 게임패스에서 내려갈 수도 있습니다. (예: 스포츠 / 레이싱 게임)")
+							else if (game.isFirstParty == "EA")
+								message.append("\n\n").append("* 이 게임은 EA가 배급하는 게임으로 게임패스에서 내려가지 않습니다. 다만 일부 게임은 게임 내 컨텐츠 라이센스 만료등의 판매가 종료되면서, 게임패스에서 내려갈 수도 있습니다. (예: 스포츠 / 레이싱 게임) 또한 마이크로소프트와 EA간의 향후 계약에 따라서 내려갈 가능성도 있습니다.")
+
+							AlertDialog.Builder(requireContext())
+								.setTitle("게임패스 등록 기간 정보")
+								.setMessage(message.toString())
+								.setPositiveButton("확인", null)
+								.create().show()
+						}
+						R.id.popup_noti_lowest_price -> {
+							if (game.bundle.isEmpty())
+								registerNoti(game.id, 0)
+							else {
+								if (game.isAvailable() || game.bundle.size > 1) {
+									AlertDialog.Builder(requireContext())
+										.setTitle("최저가 알림 등록")
+										.setMessage("* 해당 게임은 여러 에디션이 있습니다. 에디션 항목에서 가격을 확인해 주십시오.")
+										.setPositiveButton("닫기", null)
+										.create()
+										.show()
+								}
+								else
+									registerNoti(game.bundle[0].id, 0)
+							}
+								
+						}
+						R.id.popup_cancel_noti_lowest_price -> {
+							val cancelID = if (game.isAvailable())
+								game.id
+							else if (game.bundle.isNotEmpty())
+								game.bundle[0].id
+							else
+								return@setOnMenuItemClickListener false
+
+							cancelNoti(cancelID, 0)
+						}
+						R.id.popup_noti_gamepass -> {
+							registerNoti(game.id, 1)
+						}
+						R.id.popup_cancel_noti_gamepass -> {
+							cancelNoti(game.id, 1)
+						}
 						R.id.popup_report -> {
 							val inflater = requireContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
 							val errorReportView = inflater.inflate(R.layout.error_report_dialog, null)
@@ -1718,7 +2081,7 @@ class TransformFragment : Fragment() {
 									report.put("deviceType", "Android")
 									report.put("deviceRegion", "Mobile")
 
-									mRequestQueue.add(JsonObjectRequest(Request.Method.POST, "http://xkorean.info/report_error", report, {
+									mRequestQueue.add(JsonObjectRequest(Request.Method.POST, "https://xkorean-33255dfcde3e.herokuapp.com/report_error", report, {
 										//mRequestQueue.add(JsonObjectRequest(Request.Method.POST, "http://192.168.200.8:3000/report_error", report, {
 										//                            if (it.has("error"))
 										//                                Toast.makeText(requireContext(), "오류를 개발자에게 전달할 수 없습니다. 잠시 후 다시 시도해 주십시오.", Toast.LENGTH_SHORT).show()
@@ -1747,6 +2110,82 @@ class TransformFragment : Fragment() {
 //        fun updateData(updateList: List<Game>) {
 //            mItems.addAll(updateList)
 //        }
+	}
+
+	private fun registerNoti(id: String, type: Int) {
+		if (mNotiList.size >= 3) {
+			AlertDialog.Builder(requireContext())
+				.setTitle("알림 등록 한도 초과")
+				.setMessage("알림은 최대 3개 까지만 등록할 수 있습니다. 이전 알람을 취소하고, 알림을 등록해 주십시오.")
+				.setPositiveButton("닫기", null)
+				.create()
+				.show()
+			return
+		}
+
+		val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
+		val token = preferenceManager.getString("fcmToken", "")
+
+		if (token == "")
+			Toast.makeText(requireContext(), "아직 알림을 처리할 준비가 되지 않았습니다. 잠시 후 다시 시도해 주십시오.", Toast.LENGTH_SHORT).show()
+
+		val notiDataJSON = JSONObject()
+		notiDataJSON.put("product_id", id)
+		notiDataJSON.put("type", type)
+		notiDataJSON.put("token", "android:$token")
+
+		val notiData = NotiData(id, type)
+		mNotiList.add(notiData)
+
+		mRequestQueue.add(JsonObjectRequest(Request.Method.POST, "https://xkorean-33255dfcde3e.herokuapp.com/register_user_noti", notiDataJSON, { result ->
+		//mRequestQueue.add(JsonObjectRequest(Request.Method.POST, "http://192.168.2.7:8080/register_user_noti", notiDataJSON, {result ->
+			when (result.getString("code")) {
+				"noti_full" -> {
+					mNotiList.remove(notiData)
+					Toast.makeText(requireContext(), "이미 3개의 알림이 등록되어 있습니다. 잠시 후 다시 시도해 주십시오.", Toast.LENGTH_SHORT).show()
+				}
+				else -> {
+					Toast.makeText(requireContext(), "알림이 등록되었습니다.", Toast.LENGTH_SHORT).show()
+				}
+			}
+
+		}, {
+			mNotiList.remove(notiData)
+			Toast.makeText(requireContext(), "알림 등록을 위해 서버에 접속할 수 없습니다.", Toast.LENGTH_SHORT).show()
+		}))
+	}
+
+	private fun cancelNoti(cancelID: String, type: Int) {
+		val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
+		val token = preferenceManager.getString("fcmToken", "")
+
+		if (token == "")
+			Toast.makeText(requireContext(), "아직 알림을 처리할 준비가 되지 않았습니다. 잠시 후 다시 시도해 주십시오.", Toast.LENGTH_SHORT).show()
+
+		val notiDataJSON = JSONObject()
+		notiDataJSON.apply {
+			put("product_id", cancelID)
+			put("type", type)
+			put("token", "android:$token")
+		}
+
+		mRequestQueue.add(JsonObjectRequest(Request.Method.POST, "https://xkorean-33255dfcde3e.herokuapp.com/cancel_user_noti", notiDataJSON, { result ->
+		//mRequestQueue.add(JsonObjectRequest(Request.Method.POST, "http://192.168.2.7:8080/cancel_user_noti", notiDataJSON, { result ->
+			when (result.getString("code")) {
+				"success" -> {
+					for (notiData in mNotiList) {
+						if (notiData.productID == cancelID && notiData.type == type) {
+							mNotiList.remove(notiData)
+							break
+						}
+					}
+					Toast.makeText(requireContext(), "알림이 해제되었습니다.", Toast.LENGTH_SHORT).show()
+				}
+				else -> Toast.makeText(requireContext(), "알림을 해제할 수 없습니다. 잠시 후 다시 시도해 주십시오: ${result.getString("code")}", Toast.LENGTH_SHORT).show()
+			}
+		}, {
+			Toast.makeText(requireContext(), "알림 해제를 위해 서버에 접속할 수 없습니다. 잠시 후 다시 시도해 주십시오.", Toast.LENGTH_SHORT).show()
+		}))
 	}
 
 	private fun getLanguageCodeFromUrl(url: String) : String {
@@ -1793,16 +2232,28 @@ class TransformFragment : Fragment() {
 			.show()
 	}
 
-	private fun showImmigrantResult(nzReleaseDate: String, releaseDate: String) {
-		val message = if (nzReleaseDate != "" && DateTime.parse(nzReleaseDate) < DateTime.parse(releaseDate)) {
-			val nzReleaseTime = DateTime.parse(nzReleaseDate)
-			"* 뉴질랜드 지역변경시 플레이 가능 시간: ${nzReleaseTime.toString("yyyy.MM.dd aa hh:mm")}"
-		} else
-			"* 뉴질랜드로 지역 변경을 하셔도 일찍 플레이하실 수 없습니다."
+	private fun showImmigrantResult(kiReleaseDate: String, nzReleaseDate: String, releaseDate: String) {
+		val buffer = StringBuilder()
+		val parser = ISODateTimeFormat.dateTime()
+		if (kiReleaseDate != "" && DateTime.parse(kiReleaseDate) < DateTime.parse(releaseDate)) {
+			val kiReleaseTime = parser.parseDateTime(kiReleaseDate)
+			buffer.append("* 키리바시(윈도우) 지역변경시 플레이 가능 시간: ${kiReleaseTime.toString("yyyy.MM.dd aa hh:mm")}").append("\n\n")
+		}
+
+		if (nzReleaseDate != "" && DateTime.parse(nzReleaseDate) < DateTime.parse(releaseDate)) {
+			val nzReleaseTime = parser.parseDateTime(nzReleaseDate)
+			if (buffer.isEmpty())
+				buffer.append("* 뉴질랜드 지역변경시 플레이 가능 시간: ${nzReleaseTime.toString("yyyy.MM.dd aa hh:mm")}")
+			else
+				buffer.append("* 뉴질랜드(엑스박스) 지역변경시 플레이 가능 시간: ${nzReleaseTime.toString("yyyy.MM.dd aa hh:mm")}")
+		}
+
+		if (buffer.isEmpty())
+			buffer.append("* 키리바시/뉴질랜드로 지역 변경을 하셔도 일찍 플레이하실 수 없습니다.")
 
 		AlertDialog.Builder(requireContext())
 			.setTitle("지역 변경시 선행 플레이 가능 여부")
-			.setMessage(message)
+			.setMessage(buffer.toString())
 			.setPositiveButton("닫기", null)
 			.create()
 			.show()
@@ -1819,21 +2270,21 @@ class TransformFragment : Fragment() {
 	}
 
 	fun goToStore(languageCode: String, id: String) {
-		if (mFullFeature)
+		//if (mFullFeature)
 			startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.microsoft.com/$languageCode/p/xkorean/$id")))
-		else if ((id == "BPN08ZDRPSFK" && mFullFeatureReady == 0) ||
-			(id == "C1SDBNRFXT1D" && mFullFeatureReady == 1))
-			mFullFeatureReady++
-		else if (id == "BPKDQSSFQ9WV" && mFullFeatureReady == 2) {
-			mFullFeature = true
-
-			val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
-			preferenceManager.edit().putBoolean("fullFeature", true).apply()
-
-			Toast.makeText(context, "봉인이 해제되었습니다.", Toast.LENGTH_SHORT).show()
-		}
-		else
-			mFullFeatureReady = 0
+//		else if ((id == "BPN08ZDRPSFK" && mFullFeatureReady == 0) ||
+//			(id == "C1SDBNRFXT1D" && mFullFeatureReady == 1))
+//			mFullFeatureReady++
+//		else if (id == "BPKDQSSFQ9WV" && mFullFeatureReady == 2) {
+//			mFullFeature = true
+//
+//			val preferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
+//			preferenceManager.edit().putBoolean("fullFeature", true).apply()
+//
+//			Toast.makeText(context, "봉인이 해제되었습니다.", Toast.LENGTH_SHORT).show()
+//		}
+//		else
+//			mFullFeatureReady = 0
 	}
 
 	class TransformViewHolder(binding: ItemTransformBinding) :
@@ -1861,4 +2312,6 @@ class TransformFragment : Fragment() {
 			mListener.onResponse(response)
 		}
 	}
+
+	private data class NotiData(val productID: String, val type: Int)
 }

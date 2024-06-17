@@ -38,6 +38,8 @@
         android:ellipsize="end"
         android:padding="3dp"
         android:maxLines="3"
+        android:lineSpacingExtra="0dp"
+        android:lineSpacingMultiplier="0.95"
         app:layout_constraintStart_toStartOf="@id/image_view_item_transform"
         app:layout_constraintBottom_toBottomOf="@id/image_view_item_transform"
         tools:text="게임 제목" />

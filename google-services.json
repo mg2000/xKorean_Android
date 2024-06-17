@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "576380815441",
+    "project_id": "xkorean-17f77",
+    "storage_bucket": "xkorean-17f77.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:576380815441:android:c89e81eb0038ec00b6d070",
+        "android_client_info": {
+          "package_name": "com.mg2000.xkorean"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "576380815441-9e0smgaafrtg748mg83dq0067qu5hqs2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCxiVVDlS88Wb7ngWAnQb0hBvq6cIuP_zs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "576380815441-9e0smgaafrtg748mg83dq0067qu5hqs2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

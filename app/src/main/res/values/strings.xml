@@ -6,6 +6,7 @@
     <string name="menu_capability">특성</string>
     <string name="menu_category">장르</string>
     <string name="menu_korean">한국어 지원 범위</string>
+    <string name="menu_age">연령대</string>
     <string name="menu_sort">정렬</string>
     <string name="menu_sort_priority">정렬 우선 순위</string>
     <string name="menu_refresh">새로고침</string>

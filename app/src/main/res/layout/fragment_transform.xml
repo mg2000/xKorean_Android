@@ -1,10 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.recyclerview.widget.RecyclerView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".ui.transform.TransformFragment">
+
+<androidx.recyclerview.widget.RecyclerView
     android:id="@+id/recyclerview_transform"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     app:layoutManager="GridLayoutManager"
     app:spanCount="2"
-    tools:context=".ui.transform.TransformFragment" />
+    tools:context="" />
+
+    <ImageView
+        android:id="@+id/handle_view"
+        android:layout_width="20dp"
+        android:layout_height="40dp"
+        android:layout_marginTop="0dp"
+        android:layout_marginEnd="0dp"
+        android:background="@color/black"
+        android:scaleType="centerCrop"
+        android:src="@drawable/unfold_more_black_48dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+</androidx.constraintlayout.widget.ConstraintLayout>
